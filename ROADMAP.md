@@ -5,14 +5,15 @@ actually report and ask for. It is organised around **the people who reach for
 a tiny HTML parser** and the job each of them is trying to finish, not around
 parser internals. Issues and PRs that fit the principles below are very welcome.
 
-**Where we are:** 0.4.0 shipped on 2026-10-22. The project is `domq`
-everywhere now, and declarative extraction (`#[derive(FromHtml)]` in Rust,
-dataclasses in Python) sits on top of what 0.3.0 brought: selectors, readable
-text and Markdown, editing, source spans, streaming events, reader mode, RAG
-chunking, data helpers, a CLI with a linter, and packages for crates.io, npm,
-PyPI and Homebrew. `domq mcp` is merged and ships in the next release. Most of
-0.5 is built and in review. See [what works where](#what-works-where),
-[what shipped](#shipped) and the [changelog](./CHANGELOG.md).
+**Where we are:** 0.5.0 shipped on 2026-10-25 on crates.io, npm, PyPI,
+Homebrew and the release page. It added `domq mcp` (an MCP server for agents),
+browser-style recovery for the common mis-nesting cases, and published numbers:
+**61.8%** of the 1,959 html5lib tree-construction tests match a browser's tree
+structure (0 panics), and reader mode scores **95.2% F1** against Mozilla
+Readability's 130 labelled pages. Both reports regenerate in CI on every PR.
+The [guide](https://iamsaquib8.github.io/domq/docs/) covers every surface. See
+[what works where](#what-works-where), [what shipped](#shipped) and the
+[changelog](./CHANGELOG.md).
 
 ## Who it's for
 
@@ -27,7 +28,7 @@ PyPI and Homebrew. `domq mcp` is merged and ships in the next release. Most of
    chunks for a prompt or an index, at the edge, on a server or as an agent's
    MCP tool, without a headless browser.
 4. **JavaScript on the edge** `js` — Workers, Deno, Bun, the browser: no DOM
-   needed, and a ~41 KB gzipped wasm module.
+   needed, and a ~43 KB gzipped wasm module.
 5. **Python scraping and data code** `py` — where most scraping and RAG code
    lives; a fast, never-panicking parser with selectors and Markdown.
 6. **People who ship HTML** `ship` — docs sites, static-site generators, email
@@ -47,16 +48,19 @@ gap (— means no plan yet).
 |---|---|---|---|---|---|
 | CSS selectors | ✅ | ✅ | ✅ | ✅ | ✅ |
 | readable text, Markdown | ✅ | ✅ `-t` `-m` | ✅ | ✅ | ✅ |
+| Markdown / text options (link style, images, frontmatter, LLM preset) | 0.7 | 0.7 | 0.7 | 0.7 | 0.7 |
 | reader mode (main content) | ✅ | ✅ `--main` | ✅ | 0.6 | 0.6 |
-| RAG chunks | ✅ | — | ✅ | 0.6 | 0.6 |
+| article metadata and a confidence score | 0.7 | 0.7 | 0.7 | 0.7 | 0.7 |
+| RAG chunks | ✅ | 0.7 `--chunks` | ✅ | 0.6 | 0.6 |
 | metadata (OpenGraph, JSON-LD, …) | ✅ | ✅ `--meta` | ✅ | 0.6 | 0.6 |
 | links and resources | ✅ | ✅ `--links` | ✅ | 0.6 | 0.6 |
 | tables, CSV | ✅ | ✅ `--csv` | ✅ | 0.6 | 0.6 |
-| declarative extraction | ✅ derive | ✅ `-e` | ✅ | — | ✅ dataclasses |
-| encoding detection from bytes | — | ✅ | — | — | 0.6 |
-| editing | ✅ | `-r` only | — | 0.8 | 0.8 |
-| streaming events | ✅ | 0.8 `--stream` | — | 0.8 | 0.8 |
-| accessibility and markup lint | — | ✅ | ✅ | — | — |
+| declarative extraction | ✅ derive | ✅ `-e` | ✅ | 0.6 | ✅ dataclasses |
+| bytes in, encoding detection | 0.6 | ✅ | — | 0.6 | 0.6 |
+| page outline for agents (roles, names, refs) | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 |
+| editing | ✅ | `-r` only | — | 0.11 | 0.11 |
+| streaming events | ✅ | 0.11 `--stream` | — | 0.11 | 0.11 |
+| accessibility and markup lint | 0.10 | ✅ | ✅ | 0.10 | 0.10 |
 | parse errors with positions | ✅ | via lint | via lint | ✅ | ✅ |
 
 ## Principles
@@ -80,13 +84,15 @@ Numbers we hold ourselves to (✅ = enforced in CI):
 | budget | limit | today |
 |---|---|---|
 | runtime dependencies, default build | **0** ✅ | 0 |
-| gzipped wasm, all bindings | **< 45 KiB** ✅ | ~40.8 KB (~42.3 KB with the 0.5 parser work) |
+| gzipped wasm, all bindings | **< 45 KiB** ✅ | ~42.9 KB (0.5.0: +1.5 KB browser-style recovery, +0.4 KB reader tuning) |
 | panics or hangs on any input (HTML, selectors, edits) | **none** ✅ proptest + fuzz | none known |
 | stack use on deeply nested input | **bounded** ✅ 100k-deep tests | bounded |
 | super-linear time on adversarial input | **none** — every fix gets a timing test | none known |
 | clean debug build of the library | **< 1 s** (M-series) | 0.55 s |
 | allocations per parse | **O(1)**, not O(nodes) | ~20 |
 | MSRV | **Rust 1.88** ✅ (raised only in minor releases, to versions ≥ ~6 months old) | 1.88 |
+| HTML → Markdown time | to be published (0.9), against mdream and htmd on the same pages | not measured |
+| CLI binary size, wheel size | to be set (0.9) | ~0.9 MB CLI (Apple Silicon) |
 
 The wasm budget leaves little room for bringing reader mode, chunks and the
 data helpers to JavaScript (0.6). Rather than raise it, those may ship as a
@@ -108,13 +114,43 @@ Deliberately out of scope. Reach for the right tool instead:
   page builds its content with script, you need a browser.
 - **Networking.** Neither the library, the CLI nor the MCP server fetches
   URLs; pipe from `curl`, or pair `domq mcp` with a fetch tool. The MCP server
-  reads only the HTML it is given and, once `--allow-read` lands (0.4.x),
+  reads only the HTML it is given and, once `--allow-read` lands (0.5.x),
   files under a directory you name.
 - **Speed at any cost.** We stay among the fastest owned-tree parsers, but we
   won't trade safety, correctness or size for a benchmark. If raw speed over a
   borrowed tree is your only metric, use [`tl`](https://crates.io/crates/tl).
 
 ---
+- **Machine-learned extraction in the core** (small models such as
+  ReaderLM-v2 or MinerU-HTML, or a trained page classifier). domq exposes a
+  confidence score (0.7) as the hook for an LLM or model fallback instead.
+- **Other document formats** (PDF, Office, RSS/Atom, Djot output). Use
+  markitdown or docling; feeds and Djot belong in companion crates, if
+  anywhere.
+
+## The landscape (October 2026)
+
+A full comparison with sources is in [docs/landscape.md](docs/landscape.md).
+In short:
+
+- **Where domq leads:** one zero-dependency, never-panicking core that does
+  selectors, reader mode, Markdown, chunks, metadata, links, tables, lint and
+  MCP, on every surface, in ~43 KB of gzipped wasm; the only forgiving parser
+  with a published conformance report; an MCP server with no network or file
+  access; the maintained successor to htmlq and pup.
+- **Where it's behind:** reader-mode quality is measured only as agreement
+  with Readability (competitors publish on the human-labelled AEB and WCXB
+  corpora); no Markdown options; no confidence score; metadata agreement
+  under 50% on titles, bylines and dates; Python and JS parity.
+- **Who to watch:** mdream (zero-dependency Rust Markdown engine behind
+  Cloudflare's `/markdown`, with an LLM preset), turbohtml and justhtml
+  (Python), xberg html-to-markdown (16 bindings and Agent Skills for coding
+  agents), rs-trafilatura (best published Rust extraction quality), defuddle,
+  and Cloudflare's Markdown for Agents.
+
+The releases below are shaped by this: honest quality numbers first, then
+the bindings, then Markdown built for models, then what agents need to act
+on a page without a browser.
 
 ## How releases are ordered
 
@@ -129,7 +165,7 @@ first issues. Every item is tagged with its size and with who it's for:
 - **M**: medium, touches several areas or a binding.
 - **L**: large, new infrastructure, a new crate, or a research-style project.
 
-## Ongoing — Launch feedback
+## Ongoing — Launch feedback and honest numbers
 
 The first months after the announcement decide whether this becomes a tool
 people rely on.
@@ -142,8 +178,21 @@ people rely on.
       examples.
 - [ ] **S** Keep 5–10 `good first issue`s labelled from the
       [anytime lane](#anytime--small-and-welcome).
+- [ ] **M** `ai` **Honest quality numbers before quality claims:** run
+      `main_content()` on the Zyte/ScrapingHub article-extraction benchmark
+      (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types, CC-BY-4.0),
+      publish precision, recall, F1 and ms/page next to the published scores
+      (rs-trafilatura 0.970 / 0.859, Readability.js 0.947 / 0.675,
+      dom_smoothie 0.865 / 0.762), and relabel the Readability table as
+      *agreement*. Tune only against the dev splits.
+- [ ] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
+      on its real-page corpus; until then, word it as measured.
+- [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
+      chunks: output changes only in minor releases, under an "Output changes"
+      heading in the changelog, so re-embedding an index is planned rather
+      than a surprise. (0.5.0's changes are listed that way in hindsight.)
 
-## 0.4.x — "Agents that don't pay for markup"
+## 0.5.x — "Agents that don't pay for markup"
 
 `domq mcp` saves an agent from reading raw markup, but only if the agent
 doesn't have to *write* that markup first. Today every tool takes the page as
@@ -154,15 +203,17 @@ reading the HTML. This release makes the MCP server cheap to use on real pages.
 - [x] **L** `ai` `domq mcp`: an MCP server over stdio exposing select, text,
       Markdown, chunks, links, metadata, tables, extract and lint on HTML the
       agent provides (still no fetching). Speaks MCP 2026-07-28 and the
-      handshake-based revisions back to 2024-11-05. *Merged; ships in the
-      next release.*
+      handshake-based revisions back to 2024-11-05. *Shipped in 0.5.0.*
 - [ ] **M** `ai` `domq mcp --allow-read DIR`: every tool accepts a `path`
       instead of `html`, restricted to files under DIR (no `..` or symlink
       escapes), off by default. Documented recipe: a fetch tool that saves the
       page to disk, then domq on the file.
-- [ ] **S** `ai` Bounded responses on every tool: `max_chars` and a cursor for
-      `chunks`, `select`, `links` and `tables`, with `truncated` reported the
-      same way everywhere, so one big page can't flood the context window.
+- [ ] **S** `ai` Bounded responses on every tool: `max_chars` and an
+      `offset` on `markdown` and `text` (returning `truncated` and
+      `next_offset`, as the official fetch server's `max_length` /
+      `start_index` do), a cursor for `chunks`, `select`, `links` and
+      `tables`, and an `estimated_tokens` field, so one big page can't flood
+      the context window.
 - [ ] **S** `ai` `domq mcp` in the official MCP Registry (a `server.json`
       published from the release workflow) and the MCP client directories.
 - [ ] **M** `ai` `shell` Install with tools people already have: the native
@@ -170,74 +221,39 @@ reading the HTML. This release makes the MCP server cheap to use on real pages.
       binaries (the ruff / biome model; names to be confirmed), so
       `uvx … mcp` and `npx -y … mcp` work in MCP client configs and shell users
       get a one-line install on every OS.
+- [ ] **S** `ai` Input budgets: `ParseOptions { max_input_bytes, max_nodes,
+      max_depth }` with a `truncated` flag, and defaults in `domq mcp`, so one
+      hostile page can't exhaust a server (Readability's `maxElemsToParse`,
+      lol_html's `MemorySettings`).
+- [ ] **S** `ai` Agent Skills and one-click installs: a `SKILL.md` that
+      teaches Claude Code, Codex, Cursor and Gemini CLI to use the `domq` CLI
+      directly (no MCP needed), and install links for MCP clients that support
+      them. xberg's html-to-markdown already ships skills.
 
-## 0.5 — "Trust, measured"
-
-Earn trust with published numbers, not adjectives, including against the tools
-people would otherwise pick. Much of this is built on the `feat/conformance`,
-`feat/spec-recovery`, `feat/reader-benchmark` and `docs/book` branches and is
-waiting to merge.
-
-- [ ] **L** Conformance report: run the HTML tree-construction suite (the
-      html5lib tests, now maintained in web-platform-tests), publish pass rates
-      per area with the by-design gaps explained, and track them in CI.
-      *Built, in review: 1,959 tests, 0 panics, 55.5% same structure.*
-- [ ] **L** Spec-aligned recovery where it's cheap, chosen by what the
-      conformance report says matters, within the size budget.
-      *Built, in review: scoped implicit closes (`<li><a>One<li>`,
-      `<td><b>x<td>`, `<p><b>x<div>`), character references without `;`,
-      browser comment recovery, raw-text elements and `<plaintext>`; same
-      structure as a browser 55.5% → 61.8% for +1.5 KB gzipped wasm.*
-- [ ] **L** Reopen formatting elements (a bounded "adoption agency lite"):
-      `<p><b>x<p>y` keeps `y` bold, `<b><i>x</b>y</i>` keeps `y` italic. The
-      biggest remaining area in the conformance report.
-- [ ] **L** `ai` Reader-mode benchmark: score `main_content()` and
-      `metadata()` against Mozilla Readability's labelled test pages, publish
-      precision and recall, and tune the heuristic with it.
-      *Built, in review: 91.9% → 95.2% F1.*
-- [ ] **M** `ai` Metadata against the same pages: titles without the trailing
-      site name, bylines from the page text ("By Jane Doe"), more published
-      date sources.
-- [ ] **M** `ai` Reader mode and Markdown next to what RAG pipelines use today
-      — trafilatura, Readability.js, markdownify, turndown — on the same
-      labelled pages, with the numbers published either way.
-- [ ] **M** `py` `js` Benchmarks where people choose: Python against
-      BeautifulSoup (html.parser and lxml), lxml and selectolax; JavaScript
-      against cheerio, parse5, node-html-parser and linkedom. Speed and size,
-      reproducible like the Rust benchmarks.
-- [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
-      chunks: their output changes only in minor releases, under an "Output
-      changes" heading in the changelog, so re-embedding an index is planned
-      rather than a surprise.
-- [ ] **L** A docs site next to the playground: cookbook, CLI reference, and
-      migration guides from htmlq, pup, scraper, BeautifulSoup and cheerio.
-      *Built, in review (pup still to write).*
-- [ ] **M** Apply to OSS-Fuzz once eligible, and run ClusterFuzzLite on every
-      PR and nightly in the meantime; crashers become regression tests.
-- [ ] **S** More budgets: CLI binary size, wheel size, and a regression
-      threshold on the weekly benchmark instead of a report only.
-
-## 0.6 — "Where people are: Python, JavaScript and RAG"
+## 0.6 — "Where people are: Python and JavaScript"
 
 Reader mode, chunks and the data helpers are what personas 3–5 come for, and
-today they exist only in Rust, the CLI and MCP. Bring them to the bindings
-before anything else.
+today they exist only in Rust, the CLI and MCP. In Python, turbohtml and
+justhtml now pitch the same "replace readability + markdownify" story; in JS,
+defuddle and mdream. Bring everything to the bindings before anything else.
 
 - [ ] **M** `py` Python: `main_content()`, `metadata()`, `links()` /
       `resources()`, `to_markdown_chunks()`, `table_rows()` and CSV,
       `resolve_url`, and reusable `Selector` objects.
-- [ ] **S** `py` `domq.parse(bytes)` with the CLI's encoding detection (BOM,
-      `<meta charset>`, UTF-8, Windows-1252): `requests`' `r.content` and
-      Scrapy's `response.body` are bytes.
+- [ ] **S** `py` `js` `rust` Bytes in, everywhere: `domq::decode(&[u8])` in
+      the library (the CLI's sniffing: BOM, `<meta charset>`, UTF-8,
+      Windows-1252, reporting which rule decided), `domq.parse(bytes)` in
+      Python (`requests`' `r.content`, Scrapy's `response.body`) and
+      `Uint8Array` in JS (cheerio's `loadBuffer`).
 - [ ] **M** `js` JavaScript: `mainContent()`, `metadata()`, `links()`,
-      `toMarkdownChunks()` and `tables()`, inside the size budget — as a
+      `toMarkdownChunks()` and `tables()`, inside the size budget, as a
       second, optional wasm module if the core can't hold them.
-- [ ] **S** `ai` Token-aware chunking: `to_markdown_chunks_by(max, |s| tokens(s))`
-      with your own tokenizer, optional overlap, and stable chunk ids for
-      incremental re-indexing; in every binding.
-- [ ] **S** `ai` Output options for LLMs: links as numbered footnotes or
-      stripped, image alt text inline or dropped, tables kept as HTML when
-      spans don't fit Markdown; for `to_text` and `to_markdown`.
+- [ ] **S** `js` `extract(html, spec)`: cheerio's `extract()` descriptor maps
+      (a selector string, `[selector]` for all matches, `{selector, value}`,
+      nested maps), so cheerio code ports one-to-one.
+- [ ] **S** `py` `shell` `ai` Scrapy-style pseudo-elements: `a::attr(href)`
+      and `h2::text` in `select` (Python, CLI, MCP), labelled non-standard
+      like `:contains`, so parsel selectors work unchanged.
 - [ ] **M** `py` `ai` Integrations: a LangChain document transformer and a
       LlamaIndex reader (in a companion package, or as documented recipes),
       and tables into pandas.
@@ -245,12 +261,128 @@ before anything else.
       Windows arm64, free-threaded CPython 3.14t; and conda-forge.
 - [ ] **S** `js` Publish to JSR for Deno; Cloudflare Workers and Deno
       examples, and when to use domq rather than Workers' `HTMLRewriter`.
+- [ ] **M** `py` `js` Benchmarks where people choose: selectolax's
+      754-domain harness for Python (selectolax, lxml, BeautifulSoup,
+      html5-parser, justhtml, turbohtml) and htmlparser-benchmark for JS
+      (htmlparser2, node-html-parser, parse5, cheerio), plus gzipped bundle
+      size and cold start in Workers, Deno and Bun.
 - [ ] **M** Playground "copy as Rust / JS / Python / CLI" for the current
       selector, so it doubles as a code generator.
 - [ ] **M** More package managers: Scoop / winget (Windows), Nix, AUR, and a
       tiny Docker image.
 
-## 0.7 — "Lint for teams"
+## 0.7 — "Markdown built for models"
+
+LLM and RAG pipelines are the fastest-growing group, and every converter they
+compare us with lets them shape the output. One options type, exposed the same
+way in every surface (library, CLI flags, MCP arguments, JS, Python).
+
+- [ ] **M** `ai` `MarkdownOptions` / `to_markdown_with()`: link style (inline,
+      reference, or a links footer like Jina's `X-With-Links-Summary`),
+      images (keep, alt text only, drop; drop `data:` URIs), heading, bullet,
+      emphasis and fence style, tags to skip or keep as HTML, absolute URLs
+      from a base, wrap width, maximum blank lines. Folds in the old "links
+      as footnotes" item. (turndown, htmd, markdownify, html2text.)
+- [ ] **S** `ai` An LLM preset and a token estimate: `--llm` drops empty and
+      redundant links, self-link headings, fragment-only links, tracking
+      parameters (utm_*, fbclid, gclid), SVG and data URIs, and keeps image
+      alt text; `--tokens` and an `estimated_tokens` field, labelled a
+      heuristic. (mdream's minimal preset, Cloudflare's `x-markdown-tokens`.)
+- [ ] **S** `ai` `shell` YAML frontmatter: `--frontmatter`,
+      `to_markdown_document()`, MCP `frontmatter: true` (title, canonical,
+      author, date, description, language, site, image, word count).
+- [ ] **M** `ai` A standardization pass before conversion: code-block
+      languages from Prism, Shiki, highlight.js and `data-lang` (line-number
+      gutters stripped), footnotes to `[^n]`, MathJax/KaTeX to `$…$`, lazy
+      images (`data-src`, `<noscript>`) to `src`, heading permalinks dropped,
+      a first H1 that repeats the title de-duplicated, callouts to
+      `> [!NOTE]`. (defuddle, readabilityrs.) Scored with WebMainBench's
+      code, formula and table subset.
+- [ ] **M** `ai` `rust` `Dom::article()`: the main node with a 0–1
+      confidence score and reasons, `is_probably_readable()`, and the
+      article's title (site suffix stripped), byline (also from "By …" text),
+      date, excerpt, language, word count and reading time. CLI
+      `--main --json`; `--main` exits non-zero below a threshold if asked.
+      Absorbs the metadata-vs-Readability item; dates measured on htmldate's
+      1,000-page set.
+- [ ] **M** `ai` Extraction knobs on reader mode: a content hint or root,
+      include and exclude selectors, a precision / recall bias, keep or drop
+      comments, tables and images, and a debug log of what was removed and
+      why. (defuddle, trafilatura, legible.)
+- [ ] **S** `ai` Token-aware chunking with your own tokenizer
+      (`to_markdown_chunks_by(max, |s| tokens(s))`), overlap, stable chunk ids
+      for incremental re-indexing, table headers repeated in every chunk of a
+      split table, small sibling chunks merged; CLI `--chunks --jsonl`.
+      (docling's HybridChunker, mdream's splitter.)
+- [ ] **M** `ai` Query-focused relevance: rank chunks or prune a page for a
+      question (`--query "…"`, BM25 plus density filters, no stemming by
+      default), so an agent reads only what answers it. (Crawl4AI's
+      `fit_markdown`.)
+- [ ] **M** `ai` `rust` Output mapped back to the source: `to_text_with_map()`
+      and per-chunk source ranges, for citations and highlighting. domq
+      already records spans; inscriptis and turbohtml offer annotated text.
+- [ ] **M** `shell` `ai` `to_text` options: wrap width, tables as aligned
+      grids (colspan-aware), form fields as `[ value ]`, a `noscript` toggle.
+- [ ] **M** `rust` Custom Markdown handlers for chosen tags (closures), and
+      keep / skip lists in the bindings.
+- [ ] **M** `ai` Comments and replies extracted separately from the article.
+
+## 0.8 — "Agents that act on the page"
+
+Browser-free agents still need to *find* things: the login form, the price,
+the "next page" link. Give them the page's structure the way an accessibility
+tree does, and selectors they can reuse.
+
+- [ ] **L** `ai` `ship` A page outline: `Dom::outline()`, `domq --outline`
+      and an MCP `outline` tool listing landmarks, headings, links, buttons
+      and form controls with their implicit ARIA roles and accessible names,
+      each with a short ref that resolves to a unique selector and a source
+      span. URLs are returned by ref, so a model never writes one it could
+      hallucinate (Stagehand's approach). Static semantics only: no CSS, no
+      script, said plainly.
+- [ ] **S** `ai` `rust` `shell` `NodeRef::unique_selector()` (preferring `id`,
+      `data-testid` and stable classes over `:nth-child`), `find_text("Add to
+      cart")`, and `domq --selector-for TEXT`; MCP results carry selectors.
+- [ ] **M** `ai` `shell` `py` `js` Schema files: `domq -E spec.json` and the
+      same schema in MCP `extract`, JS and Python: a base selector, typed
+      fields (text, attribute, HTML, Markdown, number, boolean, date), nested
+      and list fields, defaults, sibling and parent navigation (`+ tr`),
+      trimming and number parsing. An agent writes the schema once and reruns
+      it with no LLM. (Crawl4AI's JsonCss, orf/hq, xidel.)
+- [ ] **M** `ai` `rust` Complete structured data: Microdata and RDFa next to
+      JSON-LD, with typed views for Article, Product/Offer, Recipe,
+      BreadcrumbList, FAQPage and Event. (xberg, turbohtml, Firecrawl's
+      `product` format.)
+- [ ] **S** `ai` Forms: `Dom::forms()` with action, method, fields, labels,
+      types and current values, for agents that fill them in elsewhere.
+
+## 0.9 — "Trust, compared"
+
+The remaining measurement work, against the tools people would otherwise pick.
+
+- [ ] **L** `rust` Reopen formatting elements (a bounded "adoption agency
+      lite"): `<p><b>x<p>y` keeps `y` bold, `<b><i>x</b>y</i>` keeps `y`
+      italic. The weakest area in the conformance report (26.7%).
+- [ ] **M** `ai` Reader mode and Markdown next to trafilatura, Readability.js,
+      defuddle, markdownify, turndown, htmd and mdream on the same corpora
+      (AEB, WCXB, trafilatura's set, WebMainBench), published either way.
+- [ ] **M** `rust` `shell` Speed where people choose: HTML → Markdown against
+      mdream, htmd and html-to-markdown-rs on mdream's pages; parsing against
+      astral-html, tl, lol_html, html5gum and scraper on real pages; reader
+      mode in ms/page against dom_smoothie and rs-trafilatura; the CLI
+      (hyperfine) against htmlq, pup, xq and the Markdown CLIs; tokens saved,
+      counted with a fixed offline tokenizer.
+- [ ] **S** `rust` A robustness matrix: panics and timeouts on adversarial
+      inputs (100k-deep nesting, attribute floods, huge unclosed documents)
+      across the Rust crates above.
+- [ ] **S** Tokenizer-suite and serializer conformance numbers next to the
+      tree-construction report (html5gum and astral-html publish theirs).
+- [ ] **M** Apply to OSS-Fuzz once eligible, and run ClusterFuzzLite on every
+      PR and nightly in the meantime; crashers become regression tests.
+- [ ] **S** More budgets: CLI binary size, wheel size, Markdown time, and a
+      regression threshold on the weekly benchmark instead of a report only.
+
+## 0.10 — "Lint for teams"
 
 Everything a team needs to put `domq lint` in CI and keep it there, in one
 release.
@@ -261,14 +393,22 @@ release.
       and a config file, so a team can adopt the linter on an existing site.
 - [ ] **M** `ship` More rules people expect: `html-lang`, `missing-title`,
       `form-label`, `iframe-title`, nested interactive elements (an `<a>` in a
-      `<button>`), and in-page anchors that point at no `id`.
+      `<button>`), in-page anchors that point at no `id`, `target=_blank`
+      without `rel=noopener`, images without dimensions, positive `tabindex`,
+      invalid ARIA roles and attributes, buttons without `type` in forms,
+      deprecated elements, and tables without headers (markuplint, HTMLHint,
+      html-validate, axe-core's static subset).
+- [ ] **M** `ship` `js` `py` The linter in the library (a `lint` feature), so
+      the JS and Python packages and editors can use it.
+- [ ] **S** `ship` `ai` `domq llms-txt public/`: `llms.txt` and
+      `llms-full.txt` from a built static site, locally, with no crawling.
 - [ ] **M** `ship` `rust` Local link checking: relative `href` / `src` that
       point at files that don't exist, for static sites (no network).
 - [ ] **M** `ship` A reusable GitHub Action for `domq lint` that annotates pull
       requests.
 - [ ] **S** `ship` A pre-commit hook for `domq lint`.
 
-## 0.8 — "Huge documents and full trees"
+## 0.11 — "Huge documents and full trees"
 
 For inputs too big to hold as a tree, for comparing documents in tests, and
 for the rest of the binding parity.
@@ -276,6 +416,11 @@ for the rest of the binding parity.
 - [ ] **L** `rust` `shell` Streaming selectors: run a `Selector` over
       `domq::events` for multi-gigabyte dumps without building a tree; CLI
       `--stream`.
+- [ ] **L** `js` `rust` A streaming rewriter: `domq::rewrite(src, rules)` over
+      the event stream (set or remove attributes, remove, insert, replace
+      text) with a JS API for Workers, Deno and Bun, behind a feature and
+      inside the wasm budget. (lol_html, `HTMLRewriter`, parse5's rewriting
+      stream.)
 - [ ] **L** `rust` `shell` `domq diff a.html b.html`: a structural diff
       (node-level, whitespace-insensitive) for snapshot tests of rendered pages.
 - [ ] **M** `py` Python: editing API and `events()`.
@@ -292,8 +437,9 @@ for the rest of the binding parity.
 Small, high-value polish that doesn't need a release of its own. Most items are
 good first issues; each lands in whichever release is next.
 
-- [ ] **S** `shell` Several inputs in one run (`-f` repeatable), with
-      grep-style `FILE:` prefixes and a `file` field in `--jsonl`.
+- [ ] **S** `shell` Several inputs in one run (`-f` repeatable, globs), with
+      grep-style `FILE:` prefixes and a `file` field in `--jsonl`; batch output
+      with `-o DIR --keep-dirs --parallel N` and `--deduplicate`.
 - [ ] **S** `shell` `--exit-status`: exit 1 when nothing matches, for
       `if domq --exit-status …; then`. The default stays htmlq-compatible.
 - [ ] **S** `shell` Shell completions (bash, zsh, fish, PowerShell) and a man
@@ -317,6 +463,21 @@ good first issues; each lands in whichever release is next.
       and an SBOM attached to every release.
 - [ ] **M** Playground: reader-mode, chunks, metadata and lint tabs, within the
       wasm size budget.
+- [ ] **S** `shell` A pup migration guide in the docs (pup's `text{}`,
+      `attr{}`, `json{}` and `:parent-of()` map to `-t`, `-a`, `-j` and
+      `:has()`).
+- [ ] **S** `shell` Shell niceties: `--shell` for `eval`-able `NAME=…` output
+      (xidel), coloured HTML with a pager (pup, xq), and `-i` to format a file
+      in place (xq; the start of `domq fmt`).
+- [ ] **S** `rust` `shell` A URL pass: `absolutize_urls(base)` over `href`,
+      `src`, `srcset`, `poster`, `action`, `data-src`, CSS `url()` and meta
+      refresh; `rewrite_urls(|u| …)`; `strip_tracking_params()`; CLI
+      `--absolute` for HTML output.
+- [ ] **S** `rust` `py` Text matchers: `:has-text()`, `:only-text`,
+      case-insensitive `:contains("x" i)`, and `NodeRef::own_text()` (direct
+      text only), as dom_query and selectolax have.
+- [ ] **S** `rust` Editing conveniences: `replace_with_html`, `remove_attrs` /
+      `remove_all_attrs`, `strip_tags` (unwrap by selector).
 
 ## 1.0 — "Stable"
 
@@ -326,14 +487,15 @@ good first issues; each lands in whichever release is next.
       `#[non_exhaustive]` where growth is expected and no known breaking
       changes pending.
 - [x] A written MSRV policy (see [Budgets](#budgets)).
-- [ ] Conformance and reader-mode numbers are published and tracked.
+- [ ] Conformance and reader-mode numbers are published and tracked, including
+      reader mode on held-out, human-labelled corpora (AEB, WCXB).
 - [ ] Months of continuous fuzzing with no open crashers.
 - [ ] Used by real projects (a "used by" list in the README).
 - [ ] SemVer covers everything people script against: the crate API, CLI
       flags, output formats and exit codes, the MCP tools and their schemas,
       and the JS and Python APIs.
-- [ ] The output-stability policy (0.5) has held for at least two minor
-      releases.
+- [ ] The output-stability policy (see Ongoing) has held for at least two
+      minor releases.
 - [ ] A deprecation policy: anything removed is deprecated, with a warning,
       for at least one minor release first.
 - [ ] A written support policy for Python, Node and Deno versions.
@@ -346,12 +508,12 @@ good first issues; each lands in whichever release is next.
 Being easy to *get* matters as much as features.
 
 **Done:** crates.io (`domq`, `domq-cli`, `domq-derive`), `cargo binstall`,
-release binaries (Linux x86_64/arm64, macOS, Windows) with checksums, WASI build,
-Homebrew tap, npm (trusted publishing, provenance), PyPI (trusted publishing,
-abi3 wheels), and the playground.
+release binaries (Linux x86_64/arm64, macOS, Windows) with checksums, WASI
+build, Homebrew tap, npm (trusted publishing, provenance), PyPI (trusted
+publishing, abi3 wheels), the playground, and the guide.
 
-**Planned:** the MCP Registry and `uvx` / `npx`-launchable binaries (0.4.x);
-the docs site (0.5); musllinux, Windows arm64 and free-threaded wheels,
+**Planned:** the MCP Registry, `uvx` / `npx`-launchable binaries and Agent
+Skills (0.5.x); musllinux, Windows arm64 and free-threaded wheels,
 conda-forge, JSR, Scoop / winget / Nix / AUR / Docker (0.6); release
 automation and the Homebrew tap auto-update (anytime); homebrew-core once the
 project meets its notability bar.
@@ -375,8 +537,22 @@ Ideas we like but haven't committed to. Prototypes and use-cases welcome.
 - **Language-server-lite** — lint diagnostics in editors, using source spans;
   a natural follow-up to lint for teams (0.7).
 - **`domq fmt`** — an HTML formatter built on the pretty-printer and spans.
-- **XPath subset** — only with strong demand; CSS covers most real queries.
+- **XPath subset** — parsel, lxml, xq and turbohtml users ask for it; still
+  only with strong demand, since CSS covers most real queries.
 - **Incremental re-parse** for editors.
+- **Page types** (article, listing, forum, product, docs) with per-type
+  rules from JSON-LD `@type`, `og:type`, repeated card structure and
+  docs-framework fingerprints. WCXB shows extractors tie on articles and fall
+  to 0.41–0.84 F1 on other page types. Rules in the core; any trained model in
+  a companion crate.
+- **Site extractors** (GitHub, Hacker News, Reddit, Wikipedia, Discourse,
+  Stack Overflow, …) behind an `Extractor` trait in a companion crate
+  (`domq-sites`), as defuddle and article-extractor do; too much churn for
+  the core.
+- **Simplified semantic HTML** (`to_clean_html()`: semantic tags only, no
+  classes, styles or handlers), as mdream and Firecrawl offer. Only as
+  formatting simplification, never as a security boundary.
+- **Near-duplicate chunk detection** (simhash) for RAG indexes.
 
 ## Considered and declined
 
@@ -388,11 +564,38 @@ Ideas we like but haven't committed to. Prototypes and use-cases welcome.
   into a project that has none of them. A fetch tool that saves to disk plus
   `--allow-read` gives the same savings. We'll revisit if that pairing proves
   impractical.
-- **Fetching URLs**, **sanitization**, **full WHATWG** — see non-goals.
+- **Crawling and rendering** — every competing CLI fetches; staying
+  network-free is what makes domq the safe tool to hand an agent.
+- **Fetching URLs**, **sanitization**, **full WHATWG**, **ML extraction**,
+  **other document formats** — see non-goals.
 
 ---
 
 ## Shipped
+
+### 0.5.0 — 2026-10-25 · "Trust, measured"
+
+Details in the [changelog](./CHANGELOG.md#050--2026-10-25).
+
+- [x] `domq mcp`: an MCP server over stdio with nine read-only tools
+      (markdown, text, select, extract, chunks, links, metadata, tables, lint)
+      on HTML the agent provides; MCP 2026-07-28 and the handshake-based
+      revisions back to 2024-11-05; zero dependencies.
+- [x] A conformance report: the 1,959 html5lib tree-construction tests (now
+      in web-platform-tests), 0 panics, tracked in CI
+      ([docs/conformance.md](docs/conformance.md)).
+- [x] Spec-aligned recovery where it's cheap: scoped implicit closes
+      (`<li><a>One<li>`, `<td><b>x<td>`, `<p><b>x<div>`), character references
+      without `;`, browser comment recovery, the other raw-text elements and
+      `<plaintext>`, stray `</p>`, `</br>`, `<image>`. Same structure as a
+      browser 55.5% → 61.8%; character references 100%.
+- [x] A reader-mode benchmark against Readability's 130 pages
+      ([docs/reader-mode.md](docs/reader-mode.md)) and tuning with it: 91.9% →
+      95.2% F1 agreement (whole page: 82.1%); hidden elements left out of
+      `to_text` / `to_markdown`.
+- [x] [The guide](https://iamsaquib8.github.io/domq/docs/): install, quick
+      start, cookbook, CLI / selector / MCP references, and migration guides
+      from htmlq, scraper, BeautifulSoup and cheerio, with tested examples.
 
 ### 0.4.0 — 2026-10-22 · "Declarative scraping"
 
