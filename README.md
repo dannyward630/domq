@@ -492,9 +492,23 @@ corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 (html5lib, in web-platform-tests) and publishes the results in
 [docs/conformance.md](./docs/conformance.md): 0 panics, and 61.8% of trees
 match a browser's structure in domq's model (no implied `<html>`/`<body>`),
-with the gaps explained area by area. Reader mode is scored against Mozilla
-Readability's 130 labelled pages in [docs/reader-mode.md](./docs/reader-mode.md):
-95.2% F1 against Firefox's reader view, up from 82.1% for the whole page.
+with the gaps explained area by area.
+
+**Reader mode on human-labelled benchmarks**
+([docs/reader-quality.md](./docs/reader-quality.md)), scored with each
+benchmark's own method:
+
+| | AEB (181 articles) | WCXB dev / test (2,008 pages, 7 types) |
+|---|---:|---:|
+| **domq `main_content()`** | **0.898** | **0.738 / 0.803** |
+| trafilatura (Python) | 0.958 | 0.791 / 0.833 |
+| Readability.js | 0.947 | 0.675 / 0.726 |
+| dom_smoothie (Rust) | 0.865 | 0.762 / 0.808 |
+
+F1, published scores for the others. Strongest on articles and documentation
+(0.90 on WCXB dev), weakest on forums and listings; about 1–3 ms per page.
+Agreement with Readability itself is tracked in
+[docs/reader-mode.md](./docs/reader-mode.md).
 
 ## Contributing
 

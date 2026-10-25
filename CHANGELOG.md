@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- **Reader mode on human-labelled benchmarks.** `conformance/` gains a
+  `quality` binary that scores `main_content()` on the Zyte/ScrapingHub
+  article extraction benchmark (AEB, 181 articles) and WCXB (2,008 pages in
+  seven page types, dev and held-out test splits), each with its own scoring
+  (verified against the benchmarks' `evaluate.py`), and writes
+  [docs/reader-quality.md](docs/reader-quality.md) next to the published
+  scores of other extractors; CI checks it. First numbers: AEB F1 0.898, WCXB
+  0.738 (dev) / 0.803 (test). The Readability comparison
+  ([docs/reader-mode.md](docs/reader-mode.md)) is now labelled as agreement.
+
 ## [0.5.0] — 2026-10-25
 
 "Trust, measured": an MCP server for agents, and published numbers for how

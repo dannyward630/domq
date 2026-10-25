@@ -9,8 +9,10 @@ parser internals. Issues and PRs that fit the principles below are very welcome.
 Homebrew and the release page. It added `domq mcp` (an MCP server for agents),
 browser-style recovery for the common mis-nesting cases, and published numbers:
 **61.8%** of the 1,959 html5lib tree-construction tests match a browser's tree
-structure (0 panics), and reader mode scores **95.2% F1** against Mozilla
-Readability's 130 labelled pages. Both reports regenerate in CI on every PR.
+structure (0 panics), and reader mode scores **0.898 F1 on the AEB article
+benchmark** and **0.738 / 0.803 on WCXB** (dev / test), against human labels
+([docs/reader-quality.md](docs/reader-quality.md)). The reports regenerate in
+CI on every PR.
 The [guide](https://iamsaquib8.github.io/domq/docs/) covers every surface. See
 [what works where](#what-works-where), [what shipped](#shipped) and the
 [changelog](./CHANGELOG.md).
@@ -178,13 +180,19 @@ people rely on.
       examples.
 - [ ] **S** Keep 5–10 `good first issue`s labelled from the
       [anytime lane](#anytime--small-and-welcome).
-- [ ] **M** `ai` **Honest quality numbers before quality claims:** run
+- [x] **M** `ai` **Honest quality numbers before quality claims:**
       `main_content()` on the Zyte/ScrapingHub article-extraction benchmark
-      (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types, CC-BY-4.0),
-      publish precision, recall, F1 and ms/page next to the published scores
-      (rs-trafilatura 0.970 / 0.859, Readability.js 0.947 / 0.675,
-      dom_smoothie 0.865 / 0.762), and relabel the Readability table as
-      *agreement*. Tune only against the dev splits.
+      (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types,
+      CC-BY-4.0), scored like their own `evaluate.py` (verified to match) and
+      checked in CI ([docs/reader-quality.md](docs/reader-quality.md)):
+      **AEB 0.898**, **WCXB 0.738 dev / 0.803 test**, ~1–3 ms/page, next to
+      the published scores (rs-trafilatura 0.970 / 0.859, Readability.js
+      0.947 / 0.675, dom_smoothie 0.865 / 0.762). The Readability table is
+      now labelled *agreement*.
+- [ ] **M** `ai` Close the gaps WCXB shows, tuning on the dev split only:
+      forums (0.365, below the whole page's 0.466), listings, collections,
+      products and service pages; and AEB precision (0.828: recall is
+      already 0.981).
 - [ ] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
       on its real-page corpus; until then, word it as measured.
 - [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and

@@ -28,9 +28,11 @@ unless a benchmark is named. Corrections welcome.
 
 **Behind**
 
-- Reader-mode quality is measured only as *agreement with Readability* on
-  Readability's own test pages. Competitors report on human-labelled corpora
-  (AEB, WCXB). That number is the headline gap.
+- Reader-mode quality, now measured on the human-labelled corpora
+  ([docs/reader-quality.md](reader-quality.md)): AEB 0.898 (trafilatura
+  0.958, Readability.js 0.947, dom_smoothie 0.865) and WCXB 0.738 / 0.803
+  dev / test (rs-trafilatura 0.859 / 0.893, dom_smoothie 0.762 / 0.808).
+  Precision and non-article page types (forums, listings) are the gaps.
 - No options on `to_markdown` / `to_text`; no confidence score from
   `main_content()`; no comments extraction, page types or site extractors.
 - Metadata agreement with Readability: title 48.8%, byline 36.8%, date 48.5%.
@@ -143,7 +145,7 @@ markuplint, HTMLHint, html-validate and axe-core's static subset).
 | [trafilatura evaluation](https://trafilatura.readthedocs.io/en/latest/evaluation.html) | 990 documents, Apache-2.0 | trafilatura 0.926, justext 0.862, readability-lxml 0.853, resiliparse 0.811, goose3 0.810 |
 | [WebMainBench](https://github.com/opendatalab/WebMainBench) | 7,809 pages, 46 languages, Apache-2.0; a 545-page subset scores code, formula and table fidelity | Readability 0.654, trafilatura 0.640, resiliparse 0.629 (ROUGE-N F1) |
 | [htmldate](https://github.com/adbar/htmldate) | 1,000 pages, Apache-2.0 | publication dates: htmldate 0.926–0.949, newspaper4k 0.810 |
-| Mozilla Readability's test pages (what domq uses today) | 130 pages, Apache-2.0 | readabilityrs passes 119/130; domq's 95.2% F1 is *agreement*, not comparable with the rows above |
+| Mozilla Readability's test pages | 130 pages, Apache-2.0 | readabilityrs passes 119/130; domq's 95.2% F1 is *agreement* with Readability, not comparable with the rows above |
 
 ### Speed
 

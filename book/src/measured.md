@@ -23,16 +23,23 @@ content, …) and explains the gaps that are there by design.
 
 ## How well reader mode finds the article
 
+[docs/reader-quality.md](https://github.com/iamsaquib8/domq/blob/main/docs/reader-quality.md)
+scores `main_content()` against **human-labelled ground truth** on the two
+public benchmarks other extractors publish: the Zyte/ScrapingHub article
+extraction benchmark (AEB, 181 articles) and WCXB (2,008 pages in seven page
+types, with a held-out test split), each with its own scoring, next to the
+published scores of trafilatura, Readability.js, dom_smoothie and others.
+Today: **0.898 F1 on AEB** and **0.738 / 0.803 on WCXB** (dev / test), at a
+few milliseconds per page.
+
 [docs/reader-mode.md](https://github.com/iamsaquib8/domq/blob/main/docs/reader-mode.md)
-scores `main_content()` against **Mozilla Readability's 130 labelled test
-pages**, as word-level precision, recall and F1 against the article Firefox's
-reader view extracts, next to the score of the whole page as a baseline. It
-also compares `metadata()` field by field, and lists the hardest pages.
+measures something else: *agreement* with Readability (Firefox's reader view)
+on Readability's own 130 test pages, plus `metadata()` field by field.
 
 ## Run them yourself
 
 ```sh
-sh conformance/fetch.sh     # pinned WPT and Readability commits, sparse fetch
+sh conformance/fetch.sh     # pinned WPT, Readability, AEB and WCXB commits, sparse fetch
 cargo run --release --manifest-path conformance/Cargo.toml
 cargo run --release --manifest-path conformance/Cargo.toml -- --failures tables01.dat
 cargo run --release --manifest-path conformance/Cargo.toml --bin reader -- --explain engadget
