@@ -479,6 +479,12 @@ Property-tested ("never panics" + tree invariants), snapshot-tested against a
 corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 `no_std`, MSRV, zero dependencies and a wasm size budget.
 
+**Measured against browsers:** CI runs the 1,959 HTML tree-construction tests
+(html5lib, in web-platform-tests) and publishes the results in
+[docs/conformance.md](./docs/conformance.md): 0 panics, and 55.5% of trees
+match a browser's structure in domq's model (no implied `<html>`/`<body>`),
+with the gaps explained area by area.
+
 ## Contributing
 
 Issues and PRs are welcome! Start with [CONTRIBUTING.md](./CONTRIBUTING.md), the

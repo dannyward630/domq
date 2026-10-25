@@ -12,7 +12,7 @@ readme = "README.md"
 license = "MIT"
 keywords = ["html", "parser", "css-selector", "markdown", "wasm"]
 categories = ["parser-implementations", "wasm", "web-programming", "no-std"]
-exclude = ["/.github", "/benchmarks", "/fuzz", "/wasm", "/cli", "/derive", "/python", "/packaging", "/playground", "/docs/launch"]
+exclude = ["/.github", "/benchmarks", "/fuzz", "/wasm", "/cli", "/derive", "/python", "/packaging", "/playground", "/docs/launch", "/conformance"]
 
 [lib]
 name = "domq"
@@ -86,4 +86,4 @@ members = ["cli", "derive"]
 # fuzz harness are independent crates with their own (heavier) dependency
 # graphs and release profiles, so they are kept out of this crate's pristine,
 # minimal-dep graph.
-exclude = ["wasm", "python", "benchmarks", "fuzz"]
+exclude = ["wasm", "python", "benchmarks", "fuzz", "conformance"]

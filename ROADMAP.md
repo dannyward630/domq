@@ -128,10 +128,11 @@ New crates and new protocols: the biggest API additions.
 Earn trust with published numbers, not adjectives. This builds new test
 infrastructure, so it gets its own release.
 
-- [ ] **L** Conformance report: run the
-      [html5lib-tests](https://github.com/html5lib/html5lib-tests)
-      tree-construction suite, publish pass rates per category (marking the
-      non-goal categories honestly), and track them in CI.
+- [x] **L** Conformance report: run the HTML tree-construction suite (the
+      html5lib tests, which moved to web-platform-tests in 2026), publish
+      pass rates per area with the by-design gaps explained, and track them
+      in CI ([docs/conformance.md](docs/conformance.md): 1,959 tests, 0
+      panics, 55.5% same structure).
 - [ ] **L** Spec-aligned recovery where it's cheap, chosen by what the
       conformance report says matters (e.g. common formatting-element
       mis-nesting like `<b><i></b></i>`), and only within the size budget.
