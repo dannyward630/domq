@@ -7,6 +7,7 @@ and [`html5ever`](https://crates.io/crates/html5ever) (into its reference
 
 ```sh
 cd benchmarks
+sh fetch-pages.sh                              # the real pages (once)
 cargo bench                                    # throughput (criterion)
 cargo bench --features simd -- 'domq$'  # with memchr-backed scanning
 cargo run --release --example memory           # allocations, peak and retained heap
@@ -43,6 +44,39 @@ Inputs (`src/lib.rs`; generated, deterministic):
 | large | 420 KiB | 1,200 such sections (about one node per 16 bytes) |
 | text-heavy | 547 KiB | long-form prose: 240 paragraphs of ~380 words, one inline element and one entity each (one node per ~370 bytes) |
 | table-heavy | 712 KiB | a 4,000-row, 6-column data table with classes, links and omitted `</td>`/`</tr>` (one node per ~12 bytes) |
+
+## Real pages
+
+`benches/real_pages.rs` runs astral-html's two workloads on the five real
+pages it publishes numbers for (fetched with their licences by
+`sh fetch-pages.sh`): `parse-document` builds each library's own document and
+drops it; `extract-links` also collects an owned `{href, title, rel}` record
+for every `<a href>`. Every parser finds the same links on every page.
+
+GitHub Actions `ubuntu-latest` (AMD EPYC 7763, 4 vCPUs), criterion median, µs
+(lower is better), from the Benchmarks workflow run on 2026-10-25:
+
+| parse-document | iniconfig (6 KB) | Bootstrap (22 KB) | Rust Book (89 KB) | PEP 8 (122 KB) | PEP index (419 KB) |
+|---|---:|---:|---:|---:|---:|
+| domq | 6.5 | 56.1 | 224.3 | 489.1 | 1,707.4 |
+| astral-html | 5.2 | 36.7 | 140.8 | 319.1 | 994.5 |
+| tl | 7.3 | 43.1 | 171.4 | 390.2 | 1,154.5 |
+| scraper | 62.0 | 349.9 | 1,468.5 | 2,826.0 | 9,544.8 |
+
+| extract-links | iniconfig | Bootstrap | Rust Book | PEP 8 | PEP index |
+|---|---:|---:|---:|---:|---:|
+| domq | 8.2 | 60.8 | 260.9 | 558.1 | 2,088.4 |
+| domq (events) | 8.2 | 59.4 | 249.7 | 541.4 | 1,906.4 |
+| astral-html (Document) | 6.2 | 39.0 | 158.8 | 357.4 | 1,245.7 |
+| astral-html (Reader) | 6.5 | 44.8 | 191.5 | 413.3 | 1,393.8 |
+| tl | 10.3 | 46.7 | 199.5 | 408.9 | 1,475.7 |
+| scraper | 65.4 | 358.8 | 1,511.4 | 2,919.3 | 10,119.0 |
+
+On real pages domq is 5–6× faster than `scraper`, but **25–48% slower than
+`tl`** on all but the smallest page and slower than astral-html everywhere.
+The generated inputs below over-represent what domq is fast at; the earlier
+"ahead of `tl` on large documents" holds only for them. Closing the gap is on
+the roadmap.
 
 ## Results
 

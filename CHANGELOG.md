@@ -23,7 +23,9 @@ when to re-embed. See [Output stability](./README.md#output-stability).
   ([docs/reader-mode.md](docs/reader-mode.md)) is now labelled as agreement.
 - **Real-page parsing benchmark** next to astral-html, `tl` and `scraper`
   (`benchmarks/benches/real_pages.rs`), on the five pages astral-html
-  publishes numbers for, with its two workloads.
+  publishes numbers for, with its two workloads. It corrects the README: on
+  real pages domq is 5–6× faster than scraper but 25–48% slower than `tl`
+  (the "ahead of `tl`" claim held only for generated inputs).
 - **Output stability policy:** output changes only in minor releases, listed
   under "Output changes" ([README](README.md#output-stability)).
 

@@ -153,10 +153,11 @@ markuplint, HTMLHint, html-validate and axe-core's static subset).
   mdream 0.34 / 0.41 / 5.2 ms, html_to_markdown 1.7 / 2.7 / 28.5 ms, htmd
   2.1 / 3.5 / 34.4 ms; html2md-rs panicked on the first page. mdream's CLI
   starts in 1.4 ms.
-- **Parsing** (Rust): [astral-html](https://github.com/astral-sh/astral-html)
-  reports beating tl on five real documentation pages (link extraction, e.g.
-  Rust Book 146 µs vs tl 219 µs vs scraper 1,589 µs). domq's "ahead of tl"
-  needs re-measuring on that corpus.
+- **Parsing** (Rust): on [astral-html](https://github.com/astral-sh/astral-html)'s
+  five real pages, measured on one machine (`benchmarks/benches/real_pages.rs`),
+  astral-html is fastest, `tl` second and domq third (25–48% behind `tl`),
+  all far ahead of scraper. domq's old "ahead of tl" held only on generated
+  inputs.
 - **Python**: selectolax's 754-domain harness: selectolax 2.39 s, lxml 9.09 s,
   html5-parser 16.10 s, BeautifulSoup 61.02 s; turbohtml claims 2–5× lxml.
 - **JS**: [htmlparser-benchmark](https://github.com/AndreasMadsen/htmlparser-benchmark),

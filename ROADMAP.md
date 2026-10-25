@@ -195,8 +195,11 @@ people rely on.
       shown, forums 0.365 → 0.498. Next: listings (0.466), products,
       collections and service pages, where one container holds only part of
       the content; and AEB precision (0.828; recall is already 0.981).
-- [ ] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
-      on its real-page corpus; until then, word it as measured.
+- [x] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
+      on its real-page corpus. It doesn't hold: on real pages domq is 5–6×
+      faster than scraper but 25–48% slower than `tl` and slower than
+      astral-html everywhere (`benchmarks/benches/real_pages.rs`). The README
+      now says so.
 - [x] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
       chunks: output changes only in minor releases, under an "Output changes"
       heading in the changelog, so re-embedding an index is planned rather
@@ -377,6 +380,9 @@ The remaining measurement work, against the tools people would otherwise pick.
 - [ ] **M** `ai` Reader mode and Markdown next to trafilatura, Readability.js,
       defuddle, markdownify, turndown, htmd and mdream on the same corpora
       (AEB, WCXB, trafilatura's set, WebMainBench), published either way.
+- [ ] **M** `rust` Close the real-page parsing gap: profile domq on the five
+      real pages (25–48% behind `tl`, more behind astral-html) and fix what
+      generated inputs hid (attribute-heavy markup, scripts, long URLs).
 - [ ] **M** `rust` `shell` Speed where people choose: HTML → Markdown against
       mdream, htmd and html-to-markdown-rs on mdream's pages; parsing against
       astral-html, tl, lol_html, html5gum and scraper on real pages; reader

@@ -117,11 +117,13 @@ Also: 🤖 **AI agents** — `domq mcp` ([setup](#ai-agents-mcp)) · 🐍 **Pyth
   favourite, `:contains("text")`.
 - **Content out, not just a tree.** Readable text (`to_text`), CommonMark/GFM
   Markdown (`to_markdown`) for LLM prompts and RAG pipelines, JSON, and HTML.
-- **Runs everywhere.** `no_std + alloc`, `#![forbid(unsafe_code)]`, a ~41 KB
+- **Runs everywhere.** `no_std + alloc`, `#![forbid(unsafe_code)]`, a ~43 KB
   gzipped wasm module for browsers, Cloudflare Workers, Deno, Bun and Node, and a
   single static binary for your shell.
-- **Fast.** ~500 MB/s on markup — about 8× `scraper`, level with or ahead of
-  [`tl`][tl] — with ~20 allocations per parse (see [Performance](#performance)).
+- **Fast for an owned tree.** 5–6× faster than `scraper` on real pages, with
+  ~20 allocations per parse. Speed specialists that do less work are faster:
+  [`tl`][tl] by 1.3–1.5× and astral-html by 1.5–1.7× on real pages (see
+  [Performance](#performance)).
 - **Streams, too.** `domq::events` yields start/end/text events with the
   same recovery as the tree builder, for documents you don't want to keep.
 - **Agent-ready.** `domq mcp` is an MCP server, so Claude, Cursor or any MCP
@@ -424,9 +426,22 @@ you're sanitizing untrusted HTML, use [`ammonia`](https://crates.io/crates/ammon
 
 ## Performance
 
-Fast *for an owned tree* — full recovery, entity decoding, source spans and
-all. Apple M4 Pro, `cargo bench` (generated inputs; see
-[benchmarks/](./benchmarks) for method and caveats):
+Fast *for an owned tree*: full recovery, entity decoding, source spans and
+all. **Real pages** (the five astral-html publishes numbers for, parsed into
+each library's document; GitHub Actions, AMD EPYC 7763; µs, lower is better;
+see [benchmarks/](./benchmarks)):
+
+| page | domq | astral-html | [tl] | [scraper] |
+|---|---:|---:|---:|---:|
+| iniconfig (6 KB) | 6.5 | **5.2** | 7.3 | 62.0 |
+| Bootstrap dashboard (22 KB) | 56.1 | **36.7** | 43.1 | 350 |
+| Rust Book chapter (89 KB) | 224 | **141** | 171 | 1,469 |
+| PEP 8 (122 KB) | 489 | **319** | 390 | 2,826 |
+| PEP index (419 KB) | 1,707 | **995** | 1,155 | 9,545 |
+
+On real pages domq is 5–6× faster than `scraper`, and `tl` and astral-html
+are faster than domq (closing that gap is on the [roadmap](./ROADMAP.md)).
+**Generated inputs** (Apple M4 Pro, `cargo bench`):
 
 | input | domq | [tl] | [scraper] | [html5ever]¹ |
 |---|---:|---:|---:|---:|
@@ -436,11 +451,12 @@ all. Apple M4 Pro, `cargo bench` (generated inputs; see
 | table-heavy (712 KiB) | **422 MB/s** | 326 MB/s | 58 MB/s | 51 MB/s |
 | text-heavy (547 KiB) | 7.7 GB/s | **8.5 GB/s** | 1.9 GB/s | 1.6 GB/s |
 
-About 8× faster than `scraper`/`html5ever` on markup, ahead of `tl` on large
-documents, and ~10% behind it on prose (`tl` borrows from the input and skips
-entity decoding and recovery). A parse makes ~20 allocations in total, and the
-optional `simd` feature cuts text-heavy parse time by another ~24%. Run them
-yourself: `cd benchmarks && cargo bench`.
+On these generated documents domq is about 8× faster than
+`scraper`/`html5ever`, ahead of `tl` on large markup, and ~10% behind it on
+prose (`tl` borrows from the input and skips entity decoding and recovery);
+the real pages above are the fairer comparison. A parse makes ~20 allocations
+in total, and the optional `simd` feature cuts text-heavy parse time by
+another ~24%. Run them yourself: `cd benchmarks && sh fetch-pages.sh && cargo bench`.
 
 <sub>¹ into its reference `RcDom`.</sub>
 
