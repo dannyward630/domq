@@ -99,7 +99,8 @@ select(html, "a[href]");
 </tr>
 </table>
 
-Also: 🐍 **Python** — `pip install domq` ([docs](./python)) · 🍺 **Homebrew** —
+Also: 🤖 **AI agents** — `domq mcp` ([setup](#ai-agents-mcp)) · 🐍 **Python** —
+`pip install domq` ([docs](./python)) · 🍺 **Homebrew** —
 `brew install iamsaquib8/tap/domq` · ⚡ **WASI** — `domq.wasm` on every
 [release](https://github.com/iamsaquib8/domq/releases).
 
@@ -122,6 +123,8 @@ Also: 🐍 **Python** — `pip install domq` ([docs](./python)) · 🍺 **Homebr
   [`tl`][tl] — with ~20 allocations per parse (see [Performance](#performance)).
 - **Streams, too.** `domq::events` yields start/end/text events with the
   same recovery as the tree builder, for documents you don't want to keep.
+- **Agent-ready.** `domq mcp` is an MCP server, so Claude, Cursor or any MCP
+  client can turn the HTML it has into Markdown, fields or links.
 
 <sub>¹ Clean debug `cargo build` of an empty crate depending only on the parser (default
 features), Apple M4 Pro, 14 cores: domq 0.6 s · tl 0.4 s · html5ever 2.9 s ·
@@ -310,6 +313,38 @@ domq --meta < page.html
 
 # Lint HTML in CI (file:line:col, exit 1 on findings)
 domq lint public/**/*.html
+```
+
+## AI agents (MCP)
+
+`domq mcp` runs the CLI as a [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio. An agent that has fetched a page hands its HTML to domq and
+gets back what it needs, instead of reading raw markup:
+
+| Tool | Returns |
+|---|---|
+| `markdown` | the page (or each match of a selector) as Markdown; `main` keeps just the article |
+| `text` | readable text |
+| `select` | elements matching a CSS selector: tag, attributes, text (and HTML) |
+| `extract` | named fields as JSON, one object per item: `{"name": "h2", "url": "a@href"}` |
+| `chunks` | Markdown chunks with their heading paths, for RAG |
+| `links`, `metadata`, `tables` | links with resolved URLs; title, OpenGraph, JSON-LD…; tables as rows |
+| `lint` | accessibility and markup problems, with line and column |
+
+Every tool is read-only and works only on the HTML in its arguments: domq never
+fetches URLs or reads files. It speaks MCP 2026-07-28 and the earlier
+handshake-based revisions (2025-11-25 back to 2024-11-05).
+
+```sh
+claude mcp add domq -- domq mcp        # Claude Code
+codex mcp add domq -- domq mcp         # Codex CLI
+```
+
+For Claude Desktop, Cursor, VS Code, Windsurf and other clients, add it to the
+MCP config:
+
+```json
+{ "mcpServers": { "domq": { "command": "domq", "args": ["mcp"] } } }
 ```
 
 ## JavaScript & WebAssembly

@@ -922,3 +922,45 @@ fn lint_is_only_a_subcommand_in_first_position() {
     assert_eq!(ok(&["--", "lint"], "<lint>x</lint>"), "<lint>x</lint>\n");
     assert_eq!(ok(&["-c", "lint"], "<lint>x</lint>"), "1\n");
 }
+
+#[test]
+fn mcp_server_over_stdio() {
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"markdown","arguments":{"html":"<h1>Hi</h1><p>A <a href=x>link</a>"}}}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}"#,
+    ];
+    let (out, err, code) = domq(&["mcp"], &(requests.join("\n") + "\n"));
+    assert_eq!(code, 0, "stderr: {err}");
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 3, "{out}");
+    assert!(
+        lines[0].starts_with(r#"{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25""#),
+        "{}",
+        lines[0]
+    );
+    assert!(
+        lines[1].contains(r##""text":"# Hi\n\nA [link](x)""##),
+        "{}",
+        lines[1]
+    );
+    assert!(
+        lines[2].contains(r#""resultType":"complete","supportedVersions":["2026-07-28""#),
+        "{}",
+        lines[2]
+    );
+}
+
+#[test]
+fn mcp_help_and_usage() {
+    assert!(ok(&["mcp", "--help"], "").contains("claude mcp add domq -- domq mcp"));
+    let (_, err, code) = domq(&["mcp", "--port", "1"], "");
+    assert_eq!(code, 2);
+    assert!(
+        err.contains("domq mcp takes no options") && err.contains("domq mcp --help"),
+        "{err}"
+    );
+    // An element named <mcp> is still reachable.
+    assert_eq!(ok(&["--", "mcp"], "<mcp>x</mcp>"), "<mcp>x</mcp>\n");
+}

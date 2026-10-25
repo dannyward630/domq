@@ -8,6 +8,7 @@ mod encoding;
 mod extract;
 mod json;
 mod lint;
+mod mcp;
 mod pretty;
 
 use std::fs;
@@ -34,8 +35,10 @@ fn main() -> ExitCode {
                 }
             };
         }
+        Ok(Command::Mcp) => return mcp::serve(),
         Ok(Command::Help) => return emit(None, args::HELP),
         Ok(Command::LintHelp) => return emit(None, args::LINT_HELP),
+        Ok(Command::McpHelp) => return emit(None, args::MCP_HELP),
         Ok(Command::Version) => {
             return emit(None, &format!("domq {}\n", env!("CARGO_PKG_VERSION")));
         }
@@ -264,10 +267,14 @@ fn one_field(s: &str) -> String {
     s.replace(['\t', '\n', '\r'], " ")
 }
 
-/// `--meta`: [`Dom::metadata`] as a JSON object, keys as in the library's
-/// `serde` form. With a base URL, `canonical`, `image` and `feeds` are made
-/// absolute.
+/// `--meta`: [`meta_json`] on one line.
 fn meta_output(dom: &Dom, base: Option<&str>) -> String {
+    format!("{}\n", meta_json(dom, base))
+}
+
+/// [`Dom::metadata`] as a JSON object, keys as in the library's `serde` form.
+/// With a base URL, `canonical`, `image` and `feeds` are made absolute.
+fn meta_json(dom: &Dom, base: Option<&str>) -> String {
     let m = dom.metadata();
     let url = |u: &str| match base {
         Some(base) => domq::resolve_url(base, u),
@@ -305,7 +312,7 @@ fn meta_output(dom: &Dom, base: Option<&str>) -> String {
             "feeds",
             &json::string_array(feeds.iter().map(String::as_str)),
         );
-    format!("{}\n", obj.finish())
+    obj.finish()
 }
 
 /// Drop blank outputs when `--ignore-whitespace` is set.

@@ -28,7 +28,7 @@ pub enum Level {
 }
 
 impl Level {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Level::Error => "error",
             Level::Warning => "warning",

@@ -2,8 +2,8 @@
 
 `domq` reads HTML on stdin and prints what your CSS selector matches — as HTML,
 attribute values, readable text, **Markdown**, JSON or CSV. It also pulls named
-fields out of a page as JSON, and **lints** HTML for common accessibility and
-markup problems. It's a tiny, zero-dependency, never-panicking CLI built on
+fields out of a page as JSON, **lints** HTML for common accessibility and
+markup problems, and runs as an **MCP server** for AI agents. It's a tiny, zero-dependency, never-panicking CLI built on
 [`domq`](https://github.com/iamsaquib8/domq), and its flags are
 compatible with [`htmlq`](https://github.com/mgdm/htmlq), so it drops into existing
 scripts.
@@ -207,6 +207,47 @@ Columns count characters, and lines end at `\n`, `\r\n` or `\r`.
 Exit codes: `0` no errors or warnings, `1` errors or warnings found, `2` bad
 usage or an unreadable file (the other files are still checked). To query an
 element named `<lint>`, write `domq -- lint`.
+
+## MCP server
+
+`domq mcp` serves the [Model Context Protocol](https://modelcontextprotocol.io)
+on stdin/stdout, so an AI agent can parse and query HTML it already has:
+
+```sh
+claude mcp add domq -- domq mcp        # Claude Code
+codex mcp add domq -- domq mcp         # Codex CLI
+```
+
+```json
+{ "mcpServers": { "domq": { "command": "domq", "args": ["mcp"] } } }
+```
+
+(the JSON form is for Claude Desktop, Cursor, VS Code, Windsurf and most other
+clients). The WASI build works too: `"command": "wasmtime", "args":
+["domq.wasm", "mcp"]`.
+
+| Tool | Arguments (besides `html`) | Returns |
+|---|---|---|
+| `markdown` | `selector`, `main`, `base_url` | Markdown of the page, or of each match |
+| `text` | `selector`, `main` | readable text |
+| `select` | `selector`, `limit` (50), `include_html`, `max_chars` (1000) | `{count, truncated, matches: [{tag, attrs, text, html?}]}` |
+| `extract` | `fields` (name → spec, as in `-e`), `selector`, `base_url` | `{results: [{…}]}`, one object per match of `selector` |
+| `chunks` | `max_chars` (2000), `selector`, `main`, `base_url` | `{chunks: [{context, heading_path, markdown}]}` |
+| `links` | `selector`, `base_url` | `{count, links: [{url, text}]}` |
+| `metadata` | `base_url` | the `--meta` object |
+| `tables` | `selector` (`table`) | `{tables: [{rows: [[cell, …]]}]}` |
+| `lint` | `include_notes` | `{errors, warnings, notes, findings: [{line, column, level, rule, message}]}` |
+
+All tools are read-only (`readOnlyHint`) and closed-world: they work on the
+`html` argument alone and never fetch URLs or touch files. JSON results come as
+`structuredContent` (with an `outputSchema`) and as text. An invalid selector
+or argument is a tool error whose message points at the problem, so the model
+can fix it and retry.
+
+The server speaks MCP 2026-07-28 (per-request `_meta`, `server/discover`) and
+the handshake-based revisions 2025-11-25, 2025-06-18, 2025-03-26 and
+2024-11-05, on the same connection. To query an element named `<mcp>`, write
+`domq -- mcp`.
 
 ## Selectors
 

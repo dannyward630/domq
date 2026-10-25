@@ -14,6 +14,7 @@ domq — query HTML with CSS selectors
 USAGE:
     domq [OPTIONS] [SELECTOR]...
     domq lint [OPTIONS] [FILE]...    (see 'domq lint --help')
+    domq mcp                         MCP server for AI agents (see 'domq mcp --help')
 
     Reads HTML from stdin (or --filename) and prints every element matching
     SELECTOR. Several SELECTOR arguments are joined with spaces. With no
@@ -88,6 +89,37 @@ for a literal @ in a selector.
 Exit codes: 0 success (also when nothing matches), 1 invalid selector or I/O
 error, 2 bad usage.
 Docs: https://github.com/iamsaquib8/domq
+";
+
+pub const MCP_HELP: &str = "\
+domq mcp — an MCP server for AI agents, over stdio
+
+USAGE:
+    domq mcp
+
+    Speaks the Model Context Protocol on stdin/stdout, so an agent can parse
+    and query HTML it already has: the tools take the HTML as an argument and
+    never fetch URLs or touch files. Supports protocol 2026-07-28 and the
+    handshake-based revisions 2025-11-25 back to 2024-11-05.
+
+TOOLS (all read-only):
+    markdown    the page (or each match of a selector) as Markdown
+    text        readable text
+    select      elements matching a CSS selector: tag, attributes, text
+    extract     named fields as JSON, one object per item (like -e)
+    chunks      Markdown chunks with heading paths, for RAG
+    links       links with resolved URLs and text
+    metadata    title, description, OpenGraph, JSON-LD, feeds, ...
+    tables      tables as rows of cells
+    lint        accessibility and markup problems, with positions
+
+SETUP:
+    Claude Code:   claude mcp add domq -- domq mcp
+    Codex CLI:     codex mcp add domq -- domq mcp
+    JSON config (Claude Desktop, Cursor, VS Code, Windsurf, ...):
+        { \"mcpServers\": { \"domq\": { \"command\": \"domq\", \"args\": [\"mcp\"] } } }
+
+    To query an element named <mcp>, write 'domq -- mcp'.
 ";
 
 pub const LINT_HELP: &str = "\
@@ -197,8 +229,10 @@ pub struct LintOptions {
 pub enum Command {
     Run(Options),
     Lint(LintOptions),
+    Mcp,
     Help,
     LintHelp,
+    McpHelp,
     Version,
 }
 
@@ -223,6 +257,13 @@ impl ArgError {
             help: "domq lint --help",
         }
     }
+
+    fn mcp(message: String) -> ArgError {
+        ArgError {
+            message,
+            help: "domq mcp --help",
+        }
+    }
 }
 
 impl fmt::Display for ArgError {
@@ -237,8 +278,10 @@ pub fn parse<I: IntoIterator<Item = OsString>>(args: I) -> Result<Command, ArgEr
         .into_iter()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
-    if args.first().is_some_and(|a| a == "lint") {
-        return parse_lint(args.into_iter().skip(1));
+    match args.first().map(String::as_str) {
+        Some("lint") => return parse_lint(args.into_iter().skip(1)),
+        Some("mcp") => return parse_mcp(args.into_iter().skip(1)),
+        _ => {}
     }
 
     let mut opts = Options::default();
@@ -338,6 +381,17 @@ fn parse_lint(mut args: impl Iterator<Item = String>) -> Result<Command, ArgErro
         }
     }
     Ok(Command::Lint(opts))
+}
+
+/// Parse the arguments after `mcp`: only `--help`.
+fn parse_mcp(mut args: impl Iterator<Item = String>) -> Result<Command, ArgError> {
+    match args.next().as_deref() {
+        None => Ok(Command::Mcp),
+        Some("-h" | "--help") => Ok(Command::McpHelp),
+        Some(arg) => Err(ArgError::mcp(format!(
+            "unexpected argument '{arg}' (domq mcp takes no options)"
+        ))),
+    }
 }
 
 /// Reject flag combinations that have no sensible meaning.
