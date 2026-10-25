@@ -134,6 +134,29 @@ jobs:
           echo "gzipped wasm: $SIZE bytes (budget 46080)"
           test "$SIZE" -lt 46080
 
+  conformance:
+    name: conformance (html5lib tests, from WPT)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: conformance
+      - name: Fetch the tree-construction tests (pinned WPT commit)
+        run: sh conformance/fetch.sh
+      - name: rustfmt + clippy + self-tests (harness)
+        run: |
+          cargo fmt --manifest-path conformance/Cargo.toml -- --check
+          cargo clippy --manifest-path conformance/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path conformance/Cargo.toml
+      # docs/conformance.md is generated: any change in the parser's results
+      # must come with the regenerated report, so the diff shows it.
+      - name: docs/conformance.md is up to date
+        run: cargo run --release --manifest-path conformance/Cargo.toml -- --check docs/conformance.md
+
   fuzz:
     name: fuzz (build + smoke)
     runs-on: ubuntu-latest

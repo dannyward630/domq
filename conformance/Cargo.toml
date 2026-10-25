@@ -1,0 +1,13 @@
+[package]
+name = "domq-conformance"
+version = "0.0.0"
+publish = false
+edition = "2024"
+description = "Runs the HTML tree-construction tests (html5lib, in web-platform-tests) against domq and writes docs/conformance.md."
+
+# Independent crate (excluded from the main workspace), like benchmarks/ and
+# fuzz/. The empty `[workspace]` keeps cargo from looking further up.
+[workspace]
+
+[dependencies]
+domq = { path = "..", default-features = false }

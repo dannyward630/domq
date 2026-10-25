@@ -17,6 +17,14 @@ All notable changes to this project are documented here. The format is based on
   carries its own small JSON parser. Set up with
   `claude mcp add domq -- domq mcp`; see `domq mcp --help`.
 
+- **Conformance report.** `conformance/` runs the 1,959 HTML
+  tree-construction tests (html5lib, now maintained in web-platform-tests)
+  against domq and writes [docs/conformance.md](docs/conformance.md): pass
+  rates per area for exact trees and for structure in domq's model, with the
+  by-design gaps explained. CI regenerates it and fails when it changes, so
+  every parser change shows its effect. First run: 0 panics, 4.1% exact, 55.5%
+  same structure.
+
 ### Fixed
 - Docs: the README's Cargo snippet asked for `domq = "0.3"`, which does not
   exist under the new name, and the npm README's CDN URL pointed at the wrong
