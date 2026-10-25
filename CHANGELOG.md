@@ -4,7 +4,25 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 0.4.0
+## [Unreleased]
+
+### Added
+- **`domq mcp`: an MCP server for AI agents.** The CLI serves the Model
+  Context Protocol over stdio with nine read-only tools: `markdown`, `text`,
+  `select`, `extract`, `chunks`, `links`, `metadata`, `tables` and `lint`.
+  They take the HTML as an argument (domq still never fetches URLs or reads
+  files) and return JSON results as `structuredContent` with output schemas.
+  Speaks MCP 2026-07-28 (per-request `_meta`, `server/discover`) and the
+  handshake-based revisions back to 2024-11-05. Zero dependencies: the CLI
+  carries its own small JSON parser. Set up with
+  `claude mcp add domq -- domq mcp`; see `domq mcp --help`.
+
+### Fixed
+- Docs: the README's Cargo snippet asked for `domq = "0.3"`, which does not
+  exist under the new name, and the npm README's CDN URL pointed at the wrong
+  package.
+
+## [0.4.0] — 2026-10-22
 
 "Declarative scraping", and one name everywhere.
 

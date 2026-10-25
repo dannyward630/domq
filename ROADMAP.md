@@ -118,9 +118,10 @@ New crates and new protocols: the biggest API additions.
       `#[html(select = ".price", attr = "data-value")] price: f64`, `Vec<T>`
       for repeated items, nested structs, `Option<T>`, and errors that name the
       selector that failed. Plus a matching Python dataclass helper.
-- [ ] **L** `domq mcp`: an MCP server over stdio exposing select, text,
-      Markdown, chunks, links, metadata and lint on HTML the agent provides
-      (still no fetching).
+- [x] **L** `domq mcp`: an MCP server over stdio exposing select, text,
+      Markdown, chunks, links, metadata, tables, extract and lint on HTML the
+      agent provides (still no fetching). Speaks MCP 2026-07-28 and the
+      handshake-based revisions back to 2024-11-05.
 
 ## 0.5 — "Trust, measured" (heavy)
 
@@ -222,7 +223,9 @@ release binaries (Linux x86_64/arm64, macOS, Windows) with checksums, WASI build
 Homebrew tap, npm (trusted publishing, provenance), PyPI (trusted publishing,
 abi3 wheels), and the playground.
 
-**Planned:** the docs site (0.5); Scoop / winget / Nix / AUR / Docker (0.7);
+**Planned:** `domq mcp` in the official MCP Registry (a `server.json` published
+from the release workflow) and the MCP client directories (0.4.x); the docs
+site (0.5); Scoop / winget / Nix / AUR / Docker (0.7);
 release automation and the Homebrew tap auto-update (0.8); homebrew-core once
 the project meets its notability bar.
 
@@ -238,6 +241,8 @@ the project meets its notability bar.
 
 Ideas we like but haven't committed to. Prototypes and use-cases welcome.
 
+- **MCP file access, opt-in**: `domq mcp --allow-read DIR` so an agent can
+  pass a path under DIR instead of pasting large HTML into a tool call.
 - **WASI component (WIT)** so any component runtime can call the parser.
 - **More bindings** (C ABI, Ruby, PHP, Go via wasm) if there's demand.
 - **Language-server-lite** — lint diagnostics in editors, using source spans.

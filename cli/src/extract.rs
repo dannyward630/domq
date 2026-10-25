@@ -37,6 +37,12 @@ impl Field {
         if name.is_empty() {
             return Err(format!("--extract '{arg}': the NAME before '=' is empty"));
         }
+        Ok(Field::new(name, spec))
+    }
+
+    /// A field named `name` with the given `SPEC` (any name, even one with
+    /// a `=` in it).
+    pub fn new(name: &str, spec: &str) -> Field {
         let spec = spec.trim();
         let (spec, all) = match spec.strip_suffix("[]") {
             Some(rest) => (rest.trim_end(), true),
@@ -48,12 +54,12 @@ impl Field {
             }
             _ => (spec, None),
         };
-        Ok(Field {
+        Field {
             name: name.to_string(),
             selector: selector.to_string(),
             attr,
             all,
-        })
+        }
     }
 }
 
