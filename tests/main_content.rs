@@ -213,6 +213,59 @@ fn single_article_wins() {
 }
 
 #[test]
+fn schema_org_article_body_comes_first() {
+    // One good `itemprop=articleBody` beats the `<main>` around it, which
+    // also holds a teaser list and a share bar.
+    let html = format!(
+        "<main id=m><h2>More stories</h2><div class=teasers>{0}{0}</div>\
+         <div id=b itemprop='articleBody'>{1}</div></main>",
+        "<p>A teaser paragraph about another story, long enough to count.</p>",
+        paras(5)
+    );
+    let dom = parse(&html);
+    assert_eq!(dom.main_content().unwrap().attr("id"), Some("b"));
+}
+
+#[test]
+fn div_span_paragraphs_count() {
+    // Paragraphs written as `<div><span>…</span></div>` (no text of the div's
+    // own) score like `<p>`s: the long chapter beats the short author note.
+    let chapter: String = (0..12)
+        .map(|i| format!("<div><span>Chapter line {i}, with enough words and commas, to be a paragraph.</span></div>"))
+        .collect();
+    let html = format!(
+        "<div class=body><div id=chapter>{chapter}</div>\
+         <div id=note><p>A short note from the author, thanking readers for their patience.</p></div></div>"
+    );
+    let dom = parse(&html);
+    let main = dom.main_content().unwrap();
+    assert!(
+        main.to_text().contains("Chapter line 11"),
+        "{}",
+        main.to_text()
+    );
+}
+
+#[test]
+fn an_article_split_into_blocks_is_kept_whole() {
+    // The best block is one of several siblings; the parent adds more text
+    // than the block has, but it is all paragraphs (plus one small ad).
+    let block = |i| format!("<div class=block id=b{i}>{}</div>", paras(3));
+    let html = format!(
+        "<nav>{}</nav><div id=story>{}{}<div class=ad>Advertisement</div>{}{}</div>\
+         <div class=sidebar>{}</div>",
+        "<a href=/>Home</a> <a href=/news>News</a>",
+        block(1),
+        block(2),
+        block(3),
+        block(4),
+        "<p>Popular: <a href=/a>one</a> <a href=/b>two</a> <a href=/c>three</a></p>"
+    );
+    let dom = parse(&html);
+    assert_eq!(dom.main_content().unwrap().attr("id"), Some("story"));
+}
+
+#[test]
 fn several_articles_fall_back_to_main() {
     let html = format!(
         "<nav>menu</nav><main id=m><article>{0}</article><article>{0}</article></main>",

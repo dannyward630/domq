@@ -48,8 +48,8 @@ impl Dom {
     /// Headings, paragraphs, emphasis, links, images, code spans, fenced code
     /// blocks (language from `class="language-…"`), nested lists, block quotes
     /// and tables map to their Markdown forms, and text is escaped so it renders
-    /// as itself. Hidden elements (`<head>`, `<script>`, …) are skipped as in
-    /// [`Dom::to_text`]. Blocks are separated by one blank line, `<br>` becomes
+    /// as itself. Hidden elements (`<head>`, `<script>`, `hidden`, inline
+    /// `display: none`, …) are skipped as in [`Dom::to_text`]. Blocks are separated by one blank line, `<br>` becomes
     /// a backslash hard break, and the output has no leading or trailing
     /// newline.
     ///
@@ -236,6 +236,9 @@ impl<'a> Markdown<'a> {
     }
 
     fn open(&mut self, node: NodeRef<'a>, tag: &'a str) -> bool {
+        if self.root != Some(node.id()) && node.hides_itself() {
+            return false;
+        }
         let mut display = tags::display(tag);
         if display == Display::Hidden {
             if self.root != Some(node.id()) {

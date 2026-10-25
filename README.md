@@ -491,7 +491,9 @@ corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 (html5lib, in web-platform-tests) and publishes the results in
 [docs/conformance.md](./docs/conformance.md): 0 panics, and 61.8% of trees
 match a browser's structure in domq's model (no implied `<html>`/`<body>`),
-with the gaps explained area by area.
+with the gaps explained area by area. Reader mode is scored against Mozilla
+Readability's 130 labelled pages in [docs/reader-mode.md](./docs/reader-mode.md):
+95.2% F1 against Firefox's reader view, up from 82.1% for the whole page.
 
 ## Contributing
 

@@ -512,6 +512,30 @@ impl<'a> NodeRef<'a> {
             .any(|&(k, _)| dom.span_str(k) == name)
     }
 
+    /// Whether this element hides itself: a `hidden` attribute, or an inline
+    /// `style` with a `display: none` or `visibility: hidden` declaration
+    /// (names and values ASCII case-insensitive, `!important` allowed; no
+    /// CSS cascade). `to_text`, `to_markdown` and link text skip such
+    /// elements, as a browser's `innerText` does.
+    pub(crate) fn hides_itself(&self) -> bool {
+        self.has_attr("hidden")
+            || self.attr("style").is_some_and(|style| {
+                style.split(';').any(|declaration| {
+                    let Some((name, value)) = declaration.split_once(':') else {
+                        return false;
+                    };
+                    let name = name.trim_matches(|c: char| c.is_ascii_whitespace());
+                    let value = value
+                        .split(|c: char| c.is_ascii_whitespace() || c == '!')
+                        .find(|v| !v.is_empty())
+                        .unwrap_or("");
+                    (name.eq_ignore_ascii_case("display") && value.eq_ignore_ascii_case("none"))
+                        || (name.eq_ignore_ascii_case("visibility")
+                            && value.eq_ignore_ascii_case("hidden"))
+                })
+            })
+    }
+
     /// All `(name, value)` attribute pairs in source order, duplicates
     /// included (empty iterator for non-elements).
     pub fn attributes(&self) -> impl Iterator<Item = (&'a str, &'a str)> {

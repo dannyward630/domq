@@ -457,6 +457,18 @@ fn definition_lists() {
 // --- skipping and escaping ---------------------------------------------------
 
 #[test]
+fn elements_hidden_by_attribute_or_inline_style_are_skipped() {
+    assert_eq!(
+        md("<p>Shown <a href=x hidden>secret</a><b style='display: none'>gone</b>text</p>"),
+        "Shown text"
+    );
+    assert_eq!(
+        md("<ul><li>a<li style='visibility:hidden'>b<li>c</ul>"),
+        "- a\n- c"
+    );
+}
+
+#[test]
 fn hidden_elements_are_skipped() {
     assert_eq!(
         md("<head><title>T</title></head><p>a<script>x</script><style>s</style>b</p>"),
