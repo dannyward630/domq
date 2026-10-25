@@ -179,7 +179,8 @@ people rely on.
 - [ ] **S** Turn recurring questions into README cookbook entries and doc
       examples.
 - [ ] **S** Keep 5–10 `good first issue`s labelled from the
-      [anytime lane](#anytime--small-and-welcome).
+      [anytime lane](#anytime--small-and-welcome) (7 open:
+      [#22](https://github.com/iamsaquib8/domq/issues/22)–[#28](https://github.com/iamsaquib8/domq/issues/28)).
 - [x] **M** `ai` **Honest quality numbers before quality claims:**
       `main_content()` on the Zyte/ScrapingHub article-extraction benchmark
       (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types,
@@ -456,23 +457,25 @@ good first issues; each lands in whichever release is next.
 
 - [ ] **S** `shell` Several inputs in one run (`-f` repeatable, globs), with
       grep-style `FILE:` prefixes and a `file` field in `--jsonl`; batch output
-      with `-o DIR --keep-dirs --parallel N` and `--deduplicate`.
+      with `-o DIR --keep-dirs --parallel N` and `--deduplicate`. ([#26](https://github.com/iamsaquib8/domq/issues/26))
 - [ ] **S** `shell` `--exit-status`: exit 1 when nothing matches, for
-      `if domq --exit-status …; then`. The default stays htmlq-compatible.
+      `if domq --exit-status …; then`. The default stays htmlq-compatible. ([#22](https://github.com/iamsaquib8/domq/issues/22))
 - [ ] **S** `shell` Shell completions (bash, zsh, fish, PowerShell) and a man
       page, generated from `--help` and shipped in the release archives and
-      the Homebrew formula.
-- [ ] **S** `shell` A warning on stderr when `<meta charset>` names an encoding
-      the CLI can't decode (Shift_JIS, GBK, …), instead of silent mojibake.
+      the Homebrew formula. ([#23](https://github.com/iamsaquib8/domq/issues/23))
+- [x] **S** `shell` A warning on stderr when `<meta charset>` names an encoding
+      the CLI can't decode (Shift_JIS, GBK, …) and the page isn't valid
+      UTF-8, instead of silent mojibake. (Already in the CLI's
+      `encoding.rs`.)
 - [ ] **S** `rust` `Selection` helpers, chainable and allocation-light:
       `dom.select("a").attrs("href")`, `.texts()`, `.first()`, `.len()`.
 - [ ] **S** `rust` Reusable parser: `Dom::parse_into(&mut self, html)` reuses
       the arenas, so a crawler parsing millions of pages stops allocating per
       page.
 - [ ] **S** `rust` Cookbook: fetching with `reqwest` / `ureq`, and parsing
-      pages in parallel with rayon.
+      pages in parallel with rayon. ([#28](https://github.com/iamsaquib8/domq/issues/28))
 - [ ] **S** A counting-allocator test, so the allocations-per-parse budget is
-      enforced in CI.
+      enforced in CI. ([#27](https://github.com/iamsaquib8/domq/issues/27))
 - [ ] **S** Release automation: one command bumps every version in lock-step
       (crate, CLI, wasm, Python) and drafts the changelog; the release workflow
       updates the Homebrew tap itself (token scoped to the tap repo).
@@ -482,7 +485,7 @@ good first issues; each lands in whichever release is next.
       wasm size budget.
 - [ ] **S** `shell` A pup migration guide in the docs (pup's `text{}`,
       `attr{}`, `json{}` and `:parent-of()` map to `-t`, `-a`, `-j` and
-      `:has()`).
+      `:has()`). ([#25](https://github.com/iamsaquib8/domq/issues/25))
 - [ ] **S** `shell` Shell niceties: `--shell` for `eval`-able `NAME=…` output
       (xidel), coloured HTML with a pager (pup, xq), and `-i` to format a file
       in place (xq; the start of `domq fmt`).
@@ -492,7 +495,7 @@ good first issues; each lands in whichever release is next.
       `--absolute` for HTML output.
 - [ ] **S** `rust` `py` Text matchers: `:has-text()`, `:only-text`,
       case-insensitive `:contains("x" i)`, and `NodeRef::own_text()` (direct
-      text only), as dom_query and selectolax have.
+      text only), as dom_query and selectolax have. ([#24](https://github.com/iamsaquib8/domq/issues/24))
 - [ ] **S** `rust` Editing conveniences: `replace_with_html`, `remove_attrs` /
       `remove_all_attrs`, `strip_tags` (unwrap by selector).
 
