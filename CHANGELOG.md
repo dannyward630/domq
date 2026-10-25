@@ -25,6 +25,30 @@ All notable changes to this project are documented here. The format is based on
   every parser change shows its effect. First run: 0 panics, 4.1% exact, 55.5%
   same structure.
 
+### Changed
+- **Trees closer to a browser's** (conformance: 55.5% → 61.8% same
+  structure). Each change follows the HTML standard's recovery:
+  - Implicit closes look past unclosed inline elements, within the
+    standard's scopes: `<li><a>One<li><a>Two` gives two list items (it used
+    to nest the second inside the first link), `<td><b>x<td>` two cells, and a
+    block start tag closes an open `<p>` past inline elements
+    (`<p><b>x<div>` puts the `<div>` after the paragraph).
+  - Character references without their `;` decode where browsers decode
+    them: numeric ones (`&#169 2026`) and the 106 legacy names (`&copy 2026`,
+    `AT&ampT`), except in an attribute before `=` or an alphanumeric
+    (`?a=1&copy=2` stays). They are reported as the new
+    `ErrorKind::MissingSemicolon` (lint rule `missing-semicolon`) instead of
+    `UnknownEntity`. The default table gains the 23 legacy names it lacked
+    (`&AMP`, `&COPY`, …).
+  - Comments: `<!-->` and `<!--->` are empty comments, `--!>` also closes
+    one, a comment cut off at the end drops its trailing dashes, and `<?xml>`
+    becomes the comment `?xml` (with its `?`). `</` at the end of the input
+    is text, `</>` is dropped, and `</ x>` or `</#>` is a bogus comment.
+  - `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>` hold raw text like
+    `<script>`, and everything after `<plaintext>` is its text.
+  - A stray `</p>` inserts an empty paragraph, `</br>` is a `<br>`, and
+    `<image>` is an `<img>` (outside SVG and MathML).
+
 ### Fixed
 - Docs: the README's Cargo snippet asked for `domq = "0.3"`, which does not
   exist under the new name, and the npm README's CDN URL pointed at the wrong

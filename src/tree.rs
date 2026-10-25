@@ -106,9 +106,13 @@ impl Dom {
     }
 
     /// Append `s` with its character references decoded straight into the
-    /// arena. Also returns where in `s` the first reference-shaped `&…` left
-    /// as is starts, if any (see [`crate::entities::decode_into`]).
-    pub(crate) fn intern_decoded(&mut self, s: &str, in_attr: bool) -> (Span, Option<usize>) {
+    /// arena. Also returns the first problem decoding met, its offset into
+    /// `s` (see [`crate::entities::decode_into`]).
+    pub(crate) fn intern_decoded(
+        &mut self,
+        s: &str,
+        in_attr: bool,
+    ) -> (Span, Option<crate::entities::Problem>) {
         let start = self.strings.len();
         let unknown = crate::entities::decode_into(s, &mut self.strings, in_attr);
         (self.span_since(start), unknown)

@@ -140,7 +140,24 @@ impl<'a> Tokenizer<'a> {
 
     fn read_markup(&mut self) -> Token<'a> {
         match self.peek_at(1) {
-            Some(b'/') => self.read_end_tag(),
+            Some(b'/') => match self.peek_at(2) {
+                Some(c) if c.is_ascii_alphabetic() => self.read_end_tag(),
+                // `</>` is dropped, as in browsers.
+                Some(b'>') => {
+                    let s = self.slice(self.pos, self.pos);
+                    self.error(self.pos, ErrorKind::StrayEndTag);
+                    self.pos += 3;
+                    Token::Text(s)
+                }
+                // `</` at the end of the input is text.
+                None => {
+                    let s = self.slice(self.pos, self.pos + 2);
+                    self.pos += 2;
+                    Token::Text(s)
+                }
+                // `</ x>`, `</#>`: a bogus comment.
+                Some(_) => self.read_bogus_comment(),
+            },
             Some(b'!') => self.read_bang(),
             Some(b'?') => self.read_bogus_comment(),
             Some(c) if c.is_ascii_alphabetic() => self.read_start_tag(),
@@ -281,19 +298,52 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    /// A comment, recovered as in browsers: `<!-->` and `<!--->` are empty
+    /// comments, `--!>` also ends one, and one cut off by the end of input
+    /// drops the `-`/`--` it ended in.
     fn read_comment(&mut self) -> Token<'a> {
         let open = self.pos;
         self.pos += 4; // consume '<!--'
         let start = self.pos;
-        if let Some(rel) = scan::find(b"-->", self.rest()) {
-            self.pos += rel;
-            let s = self.slice(start, self.pos);
-            self.pos += 3;
+        for abrupt in [&b">"[..], b"->"] {
+            if self.starts_with(abrupt) {
+                self.pos += abrupt.len();
+                self.error(open, ErrorKind::BogusComment);
+                return Token::Comment(self.slice(start, start));
+            }
+        }
+        // Each `--` found is either the end or skipped by one byte, so the
+        // scan stays linear.
+        let mut from = start;
+        while let Some(rel) = self
+            .bytes
+            .get(from..)
+            .and_then(|rest| scan::find(b"--", rest))
+        {
+            let dashes = from + rel;
+            let close = match self.bytes.get(dashes + 2..) {
+                Some([b'>', ..]) => 3,
+                Some([b'!', b'>', ..]) => 4,
+                _ => {
+                    from = dashes + 1;
+                    continue;
+                }
+            };
+            if close == 4 {
+                self.error(open, ErrorKind::BogusComment);
+            }
+            let s = self.slice(start, dashes);
+            self.pos = dashes + close;
             return Token::Comment(s);
         }
         self.pos = self.bytes.len();
         self.error(open, ErrorKind::UnterminatedComment);
-        Token::Comment(self.slice(start, self.pos))
+        let s = self.slice(start, self.pos);
+        let s = s
+            .strip_suffix("--")
+            .or_else(|| s.strip_suffix('-'))
+            .unwrap_or(s);
+        Token::Comment(s)
     }
 
     fn read_cdata(&mut self) -> Token<'a> {
@@ -326,12 +376,15 @@ impl<'a> Tokenizer<'a> {
         Token::Doctype(s)
     }
 
-    /// `<! ... >` (not comment/doctype/cdata) and `<? ... >` are treated as
-    /// bogus comments, matching browser recovery.
+    /// `<! ... >` (not comment/doctype/cdata), `<? ... >` and `</` followed
+    /// by something other than a letter are treated as bogus comments,
+    /// matching browser recovery: the comment is what follows `<!` or `</`,
+    /// or everything after the `<` of `<?` (`<?xml …>` is the comment
+    /// `?xml …`).
     fn read_bogus_comment(&mut self) -> Token<'a> {
         let open = self.pos;
         self.pos += 1; // consume '<'
-        if matches!(self.peek(), Some(b'!') | Some(b'?')) {
+        if matches!(self.peek(), Some(b'!' | b'/')) {
             self.pos += 1;
         }
         let start = self.pos;
@@ -345,9 +398,13 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Scan raw-text content up to (but not consuming) the matching end tag.
+    /// `<plaintext>` has none: everything after it is text.
     fn read_raw_text(&mut self, end_name: &str) -> Token<'a> {
         let start = self.pos;
-        loop {
+        if end_name.eq_ignore_ascii_case("plaintext") {
+            self.pos = self.bytes.len();
+        }
+        while self.pos < self.bytes.len() {
             match scan::find_byte(b'<', self.rest()) {
                 None => {
                     self.pos = self.bytes.len();
@@ -400,7 +457,17 @@ impl<'a> Iterator for Tokenizer<'a> {
 /// Whether an element's content is treated as raw text by the tokenizer
 /// (no nested tags). Entity-decoding of that text is decided later, per element.
 fn is_rawish_name(name: &str) -> bool {
-    ["script", "style", "title", "textarea"]
-        .iter()
-        .any(|t| name.eq_ignore_ascii_case(t))
+    [
+        "script",
+        "style",
+        "title",
+        "textarea",
+        "xmp",
+        "iframe",
+        "noembed",
+        "noframes",
+        "plaintext",
+    ]
+    .iter()
+    .any(|t| name.eq_ignore_ascii_case(t))
 }

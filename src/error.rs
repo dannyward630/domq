@@ -59,12 +59,16 @@ pub enum ErrorKind {
     /// An element was closed implicitly by another tag or end-of-input.
     ImplicitlyClosed,
     /// A reference-shaped `&…` was not recognised and was left verbatim: an
-    /// unknown `&name;`, a malformed `&#…`, or one of WHATWG's legacy names
-    /// (`&amp`, `&copy`, …) missing its `;`. A bare `&` (as in `a & b`,
+    /// unknown `&name;` or a malformed `&#…`. A bare `&` (as in `a & b`,
     /// `?a=1&b=2` or `x&order=1`) is valid HTML and not reported. The position
-    /// is that of the `&` (the first such one in a text run or attribute
+    /// is that of the `&` (the first problem in a text run or attribute
     /// value).
     UnknownEntity,
+    /// A character reference was decoded although its `;` is missing, as
+    /// browsers do: a numeric one (`&#169 2026`) or one of WHATWG's 106 legacy
+    /// names (`&copy 2026`, `AT&ampT`). Often a URL pasted into text
+    /// (`?a=1&copy=2` reads as `?a=1©=2`). The position is that of the `&`.
+    MissingSemicolon,
     /// A `<! ... >` or `<? ... >` construct was treated as a bogus comment.
     BogusComment,
 }
@@ -80,6 +84,7 @@ impl ErrorKind {
             ErrorKind::MismatchedEndTag => "end tag closed mis-nested elements",
             ErrorKind::ImplicitlyClosed => "element implicitly closed",
             ErrorKind::UnknownEntity => "unknown character reference left verbatim",
+            ErrorKind::MissingSemicolon => "character reference without its ';'",
             ErrorKind::BogusComment => "bogus comment",
         }
     }
