@@ -23,8 +23,8 @@ Means over the pages.
 
 | Extraction | Precision | Recall | F1 |
 |---|---:|---:|---:|
-| `main_content()` | 93.4% | 98.9% | 95.2% |
-| Whole page (no reader mode) | 74.8% | 99.9% | 82.1% |
+| `main_content()` | 93.2% | 98.9% | 95.0% |
+| Whole page (no reader mode) | 74.7% | 99.9% | 81.9% |
 
 | Pages where reader mode's F1 is… | Pages |
 |---|---:|
@@ -61,11 +61,11 @@ The 15 pages with the lowest reader-mode F1, for tuning the heuristic:
 | `bug-1255978` | 17.4% | 100.0% | 29.7% |
 | `yahoo-3` | 21.5% | 100.0% | 35.4% |
 | `nytimes-5` | 23.3% | 100.0% | 37.8% |
+| `yahoo-4` | 40.9% | 100.0% | 58.0% |
 | `hukumusume` | 100.0% | 50.5% | 67.1% |
 | `bbc-1` | 53.1% | 100.0% | 69.3% |
 | `tmz-1` | 65.4% | 100.0% | 79.1% |
 | `wordpress` | 67.5% | 100.0% | 80.6% |
-| `yahoo-4` | 70.1% | 100.0% | 82.4% |
 | `herald-sun-1` | 100.0% | 73.1% | 84.5% |
 | `heise` | 75.7% | 100.0% | 86.2% |
 | `theverge` | 77.8% | 100.0% | 87.5% |

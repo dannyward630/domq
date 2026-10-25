@@ -698,7 +698,9 @@ pages.)
 conformance/Cargo.toml --bin quality -- --write docs/reader-quality.md`). Do
 not edit: CI regenerates it and fails when the scores change. -->
 
-What is scored: the text of `main_content()`, or of the whole page when it
+domq's rows are measured on the commit this report was generated from
+(released versions are noted in the changelog). What is scored: the text of
+`main_content()`, or of the whole page when it
 finds no container (as `domq --main -t` does). The published rows are copied
 from each benchmark's README at the pinned commit; they were produced by the
 benchmark maintainers with other tools' versions at the time, so read small
@@ -714,12 +716,11 @@ the share of pages extracted word for word.
 
 | Extractor | Version | F1 | Precision | Recall |
 |---|---|---:|---:|---:|
-| **domq `main_content()`** | {version} | **{f1:.3} ± {f1s:.3}** | {p:.3} ± {ps:.3} | {r:.3} ± {rs:.3} |
-| domq, whole page `to_text()` | {version} | {wf1:.3} | {wp:.3} | {wr:.3} |
+| **domq `main_content()`** | this commit | **{f1:.3} ± {f1s:.3}** | {p:.3} ± {ps:.3} | {r:.3} ± {rs:.3} |
+| domq, whole page `to_text()` | this commit | {wf1:.3} | {wp:.3} | {wr:.3} |
 ",
             aeb_commit = self.aeb_commit,
             aeb_short = short(&self.aeb_commit),
-            version = domq_version(),
             f1 = a.f1,
             f1s = a.f1_std,
             p = a.precision,

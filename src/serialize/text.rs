@@ -34,7 +34,10 @@ impl Dom {
     /// assert_eq!(dom.to_text(), "Hello\n\nSome bold text.\nNext line.");
     /// ```
     pub fn to_text(&self) -> String {
-        let mut text = Text::default();
+        let mut text = Text {
+            noscript: super::noscript_is_content(self),
+            ..Text::default()
+        };
         for root in self.roots() {
             walk(root, |node, enter| text.visit(node, enter));
         }
@@ -64,6 +67,7 @@ impl NodeRef<'_> {
     pub fn to_text(&self) -> String {
         let mut text = Text {
             root: Some(self.id()),
+            noscript: super::noscript_is_content(self.dom()),
             ..Text::default()
         };
         walk(*self, |node, enter| text.visit(node, enter));
@@ -91,6 +95,9 @@ struct Text {
     cell: bool,
     /// The node `NodeRef::to_text` was called on: shown even if hidden.
     root: Option<NodeId>,
+    /// `<noscript>` holds the document's content (see
+    /// [`super::noscript_is_content`]): show it as a block.
+    noscript: bool,
 }
 
 impl Text {
@@ -115,7 +122,11 @@ impl Text {
         if !root && node.hides_itself() {
             return false;
         }
-        match tags::display(tag) {
+        let display = match tag {
+            "noscript" if self.noscript => Display::Block,
+            _ => tags::display(tag),
+        };
+        match display {
             Display::Hidden if !root => return false,
             // The node itself, though hidden: a block. A `<script>` or
             // `<style>` reads verbatim, as its source.

@@ -40,6 +40,44 @@ mod json;
 #[cfg(feature = "serde")]
 mod serde_impl;
 
+/// Whether this document's `<noscript>` elements hold its content: more
+/// visible text inside them than outside. True for pages that render with
+/// script and ship their content in `<noscript>` for clients without it (a
+/// Discourse forum's thread, say); false for the usual "please enable
+/// JavaScript" notice next to real content. When true, text, Markdown, link
+/// text and reader mode show `<noscript>` content as a browser with scripting
+/// off does; otherwise they hide it. One linear pass.
+pub(crate) fn noscript_is_content(dom: &crate::tree::Dom) -> bool {
+    let (mut inside, mut outside) = (0usize, 0usize);
+    let mut depth = 0u32;
+    for root in dom.roots() {
+        walk(root, |node, enter| match node.kind() {
+            crate::node::NodeKind::Element { tag: "noscript" } => {
+                if enter {
+                    depth += 1;
+                } else {
+                    depth = depth.saturating_sub(1);
+                }
+                true
+            }
+            crate::node::NodeKind::Element { tag } => {
+                !(crate::tags::display(tag) == crate::tags::Display::Hidden || node.hides_itself())
+            }
+            crate::node::NodeKind::Text(t) => {
+                let n = t.chars().filter(|c| !is_space(*c)).count();
+                if depth > 0 {
+                    inside += n;
+                } else {
+                    outside += n;
+                }
+                false
+            }
+            _ => false,
+        });
+    }
+    inside > outside
+}
+
 /// Visit `root`'s subtree in document order without recursion, using the
 /// tree's parent/sibling links. `f(node, true)` is called on entry and returns
 /// whether to descend into the node's children; `f(node, false)` is called on

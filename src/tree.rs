@@ -389,6 +389,12 @@ pub struct NodeRef<'a> {
 }
 
 impl<'a> NodeRef<'a> {
+    /// The document this node belongs to.
+    #[inline]
+    pub(crate) fn dom(&self) -> &'a Dom {
+        self.dom
+    }
+
     #[inline]
     fn raw(&self) -> &'a Node {
         // Invariant: a `NodeRef` is only ever constructed from an id valid in

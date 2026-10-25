@@ -199,6 +199,7 @@ impl Dom {
     /// assert!(domq::parse("<nav><a href=/>Home</a></nav>").main_content().is_none());
     /// ```
     pub fn main_content(&self) -> Option<NodeRef<'_>> {
+        let noscript = crate::serialize::noscript_is_content(self);
         let order: Vec<NodeRef<'_>> = document_order(self).collect();
         let size = self.len();
         let mut flags = vec![0u8; size];
@@ -212,7 +213,7 @@ impl Dom {
                 .map_or(0, |f| f & (HIDDEN | UNLIKELY | IN_SECTION));
             let mut f = inherited;
             if let Some(tag) = node.tag_name() {
-                if is_hidden(*node, tag) {
+                if is_hidden(*node, tag, noscript) {
                     f |= HIDDEN;
                 }
                 if is_unlikely(*node, tag, inherited & IN_SECTION != 0) {
@@ -500,8 +501,8 @@ fn is_main(node: NodeRef<'_>, tag: &str) -> bool {
     tag == "main" || node.attr("role").is_some_and(|r| has_token(r, "main"))
 }
 
-fn is_hidden(node: NodeRef<'_>, tag: &str) -> bool {
-    tags::display(tag) == Display::Hidden
+fn is_hidden(node: NodeRef<'_>, tag: &str, noscript: bool) -> bool {
+    (tags::display(tag) == Display::Hidden && !(tag == "noscript" && noscript))
         || node.hides_itself()
         || node
             .attr("aria-hidden")

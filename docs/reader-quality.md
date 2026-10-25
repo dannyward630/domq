@@ -11,7 +11,9 @@ pages.)
 conformance/Cargo.toml --bin quality -- --write docs/reader-quality.md`). Do
 not edit: CI regenerates it and fails when the scores change. -->
 
-What is scored: the text of `main_content()`, or of the whole page when it
+domq's rows are measured on the commit this report was generated from
+(released versions are noted in the changelog). What is scored: the text of
+`main_content()`, or of the whole page when it
 finds no container (as `domq --main -t` does). The published rows are copied
 from each benchmark's README at the pinned commit; they were produced by the
 benchmark maintainers with other tools' versions at the time, so read small
@@ -27,8 +29,8 @@ the share of pages extracted word for word.
 
 | Extractor | Version | F1 | Precision | Recall |
 |---|---|---:|---:|---:|
-| **domq `main_content()`** | 0.5.0 | **0.898 ± 0.010** | 0.828 ± 0.014 | 0.981 ± 0.008 |
-| domq, whole page `to_text()` | 0.5.0 | 0.685 | 0.522 | 0.993 |
+| **domq `main_content()`** | this commit | **0.898 ± 0.010** | 0.828 ± 0.014 | 0.981 ± 0.008 |
+| domq, whole page `to_text()` | this commit | 0.685 | 0.522 | 0.993 |
 | rs_trafilatura | 9261e08 | 0.970 | 0.951 | 0.990 |
 | go_trafilatura | ae7ea06 | 0.960 | 0.940 | 0.980 |
 | trafilatura (Python) | 2.0.0 | 0.958 | 0.938 | 0.978 |
@@ -62,8 +64,8 @@ on the dev set only; the test set is for reporting.
 
 | Extractor | Dev F1 | Dev precision | Dev recall | Test F1 |
 |---|---:|---:|---:|---:|
-| **domq `main_content()`** | **0.738** | 0.788 | 0.805 | **0.803** |
-| domq, whole page `to_text()` | 0.691 | | | 0.724 |
+| **domq `main_content()`** | **0.747** | 0.796 | 0.815 | **0.803** |
+| domq, whole page `to_text()` | 0.701 | | | 0.724 |
 | rs-trafilatura | 0.859 | 0.863 | 0.890 | 0.893 |
 | MinerU-HTML (0.6B model) | 0.827 | 0.845 | 0.840 | — |
 | Trafilatura | 0.791 | 0.852 | 0.793 | 0.833 |
@@ -76,18 +78,18 @@ on the dev set only; the test set is for reporting.
 | Readability | 0.675 | 0.685 | 0.713 | 0.726 |
 | Goose3 | 0.652 | 0.845 | 0.593 | — |
 
-domq's snippet checks: must include 71.1% (dev) / 79.9% (test), must
-exclude 17.0% (dev) / 18.9% (test). `main_content()` found no container
-on 41 dev and 5 test pages.
+domq's snippet checks: must include 71.9% (dev) / 79.9% (test), must
+exclude 17.2% (dev) / 18.9% (test). `main_content()` found no container
+on 23 dev and 5 test pages.
 
 ### By page type (dev)
 
 | Page type | Pages | domq F1 | domq whole page | rs-trafilatura | Trafilatura | dom-smoothie | Readability |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | article | 793 | 0.895 | 0.800 | 0.932 | 0.926 | 0.908 | 0.825 |
-| forum | 113 | 0.365 | 0.466 | 0.808 | 0.585 | 0.530 | 0.466 |
+| forum | 113 | 0.498 | 0.606 | 0.808 | 0.585 | 0.530 | 0.466 |
 | product | 119 | 0.487 | 0.401 | 0.641 | 0.567 | 0.502 | 0.407 |
-| collection | 117 | 0.526 | 0.471 | 0.716 | 0.553 | 0.504 | 0.445 |
+| collection | 117 | 0.517 | 0.462 | 0.716 | 0.553 | 0.504 | 0.445 |
 | listing | 99 | 0.466 | 0.598 | 0.707 | 0.589 | 0.596 | 0.496 |
 | documentation | 91 | 0.899 | 0.805 | 0.932 | 0.888 | 0.868 | 0.736 |
 | service | 165 | 0.643 | 0.678 | 0.844 | 0.763 | 0.714 | 0.604 |
@@ -95,7 +97,7 @@ on 41 dev and 5 test pages.
 ## Speed
 
 <!-- timing: not checked by CI -->
-Measured when this report was last written, on the machine that wrote it (extraction only, release build, single thread): AEB 0.6 ms/page, WCXB dev 2.4 ms/page, WCXB test 2.9 ms/page.
+Measured when this report was last written, on the machine that wrote it (extraction only, release build, single thread): AEB 2.7 ms/page, WCXB dev 2.2 ms/page, WCXB test 0.7 ms/page.
 <!-- /timing -->
 
 ## Reproduce

@@ -561,7 +561,7 @@ fn node_to_markdown_on_a_hidden_element_shows_it() {
     let dom = parse(
         "<head><title>Tom &amp; *Jerry*</title><script>run()</script></head>\
          <body><template><h2>T</h2><p>a <b>b</b></p></template>\
-         <noscript>Enable <b>JS</b></noscript><p>x<script>s()</script></p></body>",
+         <noscript>Enable <b>JS</b></noscript><p>Visible text<script>s()</script></p></body>",
     );
     let first = |tag: &'static str| dom.find_by_tag(tag).next().unwrap();
     // Hidden only applies inside the node, never to the node itself.
@@ -571,9 +571,25 @@ fn node_to_markdown_on_a_hidden_element_shows_it() {
     assert_eq!(first("script").to_markdown(), "run()");
     // Hidden descendants stay hidden, and the whole document is unchanged.
     assert_eq!(first("head").to_markdown(), "");
-    assert_eq!(first("body").to_markdown(), "x");
-    assert_eq!(dom.to_markdown(), "x");
+    assert_eq!(first("body").to_markdown(), "Visible text");
+    assert_eq!(dom.to_markdown(), "Visible text");
     assert_eq!(md("<title>T</title><p>x</p>"), "x");
+}
+
+#[test]
+fn noscript_is_shown_when_it_holds_the_content() {
+    // A page that renders with script and ships its content in <noscript>
+    // (as Discourse forums do): shown, as with scripting off.
+    let shell = "<body><div id=app></div><noscript><h1>Thread</h1>\
+                 <p>The first post, with <b>enough</b> words.</p></noscript></body>";
+    assert_eq!(
+        md(shell),
+        "# Thread\n\nThe first post, with **enough** words."
+    );
+    // A notice next to real content stays hidden.
+    let page = "<body><noscript>Please enable JavaScript.</noscript>\
+                <article><p>The real article text, longer than the notice.</p></article></body>";
+    assert_eq!(md(page), "The real article text, longer than the notice.");
 }
 
 macro_rules! page_snapshot {

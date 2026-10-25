@@ -21,6 +21,20 @@ when to re-embed. See [Output stability](./README.md#output-stability).
   scores of other extractors; CI checks it. First numbers: AEB F1 0.898, WCXB
   0.738 (dev) / 0.803 (test). The Readability comparison
   ([docs/reader-mode.md](docs/reader-mode.md)) is now labelled as agreement.
+- **Real-page parsing benchmark** next to astral-html, `tl` and `scraper`
+  (`benchmarks/benches/real_pages.rs`), on the five pages astral-html
+  publishes numbers for, with its two workloads.
+- **Output stability policy:** output changes only in minor releases, listed
+  under "Output changes" ([README](README.md#output-stability)).
+
+### Output changes
+- **`<noscript>` that holds the page is shown.** When a document has more
+  text inside `<noscript>` than outside it (a page that renders with script
+  and ships its content for clients without it, as Discourse forums do),
+  `to_text`, `to_markdown`, link text and `main_content()` show that content,
+  as a browser with scripting off does. An "enable JavaScript" notice next to
+  real content stays hidden. WCXB forums 0.365 → 0.498, WCXB dev 0.738 →
+  0.747.
 
 ## [0.5.0] — 2026-10-25
 

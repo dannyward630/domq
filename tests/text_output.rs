@@ -29,6 +29,21 @@ fn elements_hidden_by_attribute_or_inline_style_are_skipped() {
 }
 
 #[test]
+fn noscript_is_shown_when_it_holds_the_content() {
+    let shell = "<body><div id=app></div><noscript><h1>Thread</h1>\
+                 <p>The first post, with enough words.</p><a href=/u/1>alice</a></noscript></body>";
+    let dom = parse(shell);
+    assert_eq!(
+        dom.to_text(),
+        "Thread\n\nThe first post, with enough words.\nalice"
+    );
+    assert_eq!(dom.links(None)[0].text, "alice");
+    let page = "<body><noscript>Please enable JavaScript.</noscript>\
+                <p>The real article text, longer than the notice.</p></body>";
+    assert_eq!(text(page), "The real article text, longer than the notice.");
+}
+
+#[test]
 fn hidden_elements_are_skipped() {
     assert_eq!(
         text("<head><title>T</title><style>p{}</style></head><p>Body</p>"),
