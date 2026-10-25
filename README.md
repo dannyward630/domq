@@ -19,6 +19,7 @@ for Rust, your shell, JavaScript (a ~41 KB gzipped WebAssembly module) and Pytho
 [![license](https://img.shields.io/github/license/iamsaquib8/domq)](./LICENSE)
 
 [**▶ Try it in your browser**](https://iamsaquib8.github.io/domq/) ·
+[**Guide**](https://iamsaquib8.github.io/domq/docs/) ·
 [Rust docs](https://docs.rs/domq) ·
 [CLI](./cli) ·
 [JavaScript](./wasm) ·

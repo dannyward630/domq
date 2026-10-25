@@ -151,8 +151,12 @@ infrastructure, so it gets its own release.
       site name, bylines from the page text ("By Jane Doe"), more published
       date sources (48.8% / 36.8% / 48.5% agreement today).
 - [ ] **M** Apply to OSS-Fuzz once eligible; crashers become regression tests.
-- [ ] **L** A docs site next to the playground: cookbook, CLI reference, and
-      migration guides from htmlq, scraper, BeautifulSoup and cheerio.
+- [x] **L** A docs site next to the playground
+      ([the guide](https://iamsaquib8.github.io/domq/docs/), mdBook):
+      install, quick start in four languages, a cookbook, CLI / selector /
+      MCP references, the measured results, and migration guides from htmlq,
+      scraper, BeautifulSoup and cheerio. Its Rust examples run in CI, and
+      the CLI page is checked against `domq --help`.
 
 ## 0.6 — "Huge documents" (heavy)
 

@@ -30,6 +30,15 @@ All notable changes to this project are documented here. The format is based on
   writes [docs/reader-mode.md](docs/reader-mode.md) (checked in CI like the
   conformance report). `--explain PAGE` shows what was picked and missed.
 
+- **The guide**, a docs site next to the playground
+  (<https://iamsaquib8.github.io/domq/docs/>, built with mdBook from `book/`):
+  install, a quick start in Rust, the shell, JavaScript and Python, a
+  cookbook (scraping, extraction, Markdown for LLMs and RAG, links, metadata
+  and tables, editing, streaming, linting in CI), references for the CLI,
+  selectors and the MCP server, and migration guides from htmlq, scraper,
+  BeautifulSoup and cheerio. CI runs its Rust examples and checks the CLI
+  page against `domq --help`.
+
 ### Changed
 - **Better reader mode** (95.2% F1 against Readability, from 91.9%; the
   whole page scores 82.1%): a Schema.org `itemprop="articleBody"` is the

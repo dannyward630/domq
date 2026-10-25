@@ -964,3 +964,21 @@ fn mcp_help_and_usage() {
     // An element named <mcp> is still reachable.
     assert_eq!(ok(&["--", "mcp"], "<mcp>x</mcp>"), "<mcp>x</mcp>\n");
 }
+
+#[test]
+fn book_cli_page_matches_help() {
+    // The docs site's CLI reference is the help text; regenerate it with
+    // `sh book/gen-cli.sh`. (Skipped outside the repository.)
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../book/src/cli.md");
+    let Ok(page) = std::fs::read_to_string(path) else {
+        return;
+    };
+    for args in [&["--help"][..], &["lint", "--help"], &["mcp", "--help"]] {
+        let help = ok(args, "");
+        assert!(
+            page.contains(&help),
+            "book/src/cli.md is out of date for `domq {}`: run `sh book/gen-cli.sh`",
+            args.join(" ")
+        );
+    }
+}
