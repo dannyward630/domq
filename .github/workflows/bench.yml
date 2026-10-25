@@ -47,6 +47,10 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # astral-html's five real pages, for benches/real_pages.rs.
+      - name: Fetch the real pages
+        run: sh benchmarks/fetch-pages.sh
+
       - name: Throughput (cargo bench)
         working-directory: benchmarks
         run: cargo bench 2>&1 | tee bench.txt
@@ -64,11 +68,11 @@ jobs:
           {
             echo "## Throughput (median)"
             echo '```'
-            grep -E '^parse/|time:|thrpt:' bench.txt
+            grep -E '^(parse|parse-document|extract-links)/|time:|thrpt:' bench.txt
             echo '```'
             echo "## With --features simd"
             echo '```'
-            grep -E '^parse/|time:|thrpt:' bench-simd.txt
+            grep -E '^(parse|parse-document|extract-links)/|time:|thrpt:' bench-simd.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

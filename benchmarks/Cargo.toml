@@ -23,7 +23,13 @@ tl = "0.7"
 scraper = "0.29"
 html5ever = "0.39"
 markup5ever_rcdom = "0.39"
+# Real-page comparison (benches/real_pages.rs, pages from `sh fetch-pages.sh`).
+astral-html = "=0.0.4"
 
 [[bench]]
 name = "parse"
+harness = false
+
+[[bench]]
+name = "real_pages"
 harness = false
