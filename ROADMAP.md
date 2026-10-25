@@ -5,33 +5,59 @@ actually report and ask for. It is organised around **the people who reach for
 a tiny HTML parser** and the job each of them is trying to finish, not around
 parser internals. Issues and PRs that fit the principles below are very welcome.
 
-**Where we are:** 0.3.0 shipped on 2026-10-21. It covers selectors, readable text
-and Markdown, editing, source spans, streaming events, reader mode, RAG
+**Where we are:** 0.4.0 shipped on 2026-10-22. The project is `domq`
+everywhere now, and declarative extraction (`#[derive(FromHtml)]` in Rust,
+dataclasses in Python) sits on top of what 0.3.0 brought: selectors, readable
+text and Markdown, editing, source spans, streaming events, reader mode, RAG
 chunking, data helpers, a CLI with a linter, and packages for crates.io, npm,
-PyPI and Homebrew. See [what shipped](#shipped) and the
-[changelog](./CHANGELOG.md). Everything below is what comes next.
+PyPI and Homebrew. `domq mcp` is merged and ships in the next release. Most of
+0.5 is built and in review. See [what works where](#what-works-where),
+[what shipped](#shipped) and the [changelog](./CHANGELOG.md).
 
 ## Who it's for
 
-1. **Rust developers pulling data out of HTML** — scrapers, crawlers, feed
-   readers, link checkers, test assertions on rendered pages. They want the
-   answer in one line, fast compiles, and no 40-crate tree for a two-line job.
-2. **Shell users** — `curl … | domq 'a.title' -a href`. `htmlq` (last release
-   2022) and `pup` (2016) are unmaintained; `domq` is the maintained,
-   flag-compatible replacement.
-3. **LLM, RAG and agent pipelines** — turn a page into clean Markdown or
-   chunks for a prompt or an index, at the edge or on a server, without a
-   headless browser.
-4. **JavaScript on the edge** — Workers, Deno, Bun, the browser: no DOM, and a
-   ~41 KB wasm module beats a 200 KB parser.
-5. **Python scraping and data code** — where most scraping and RAG code lives;
-   a fast, never-panicking parser with selectors and Markdown.
-6. **People who ship HTML** — docs sites, static-site generators, email
+1. **Rust developers pulling data out of HTML** `rust` — scrapers, crawlers,
+   feed readers, link checkers, test assertions on rendered pages. They want
+   the answer in one line, fast compiles, and no 40-crate tree for a two-line
+   job.
+2. **Shell users** `shell` — `curl … | domq 'a.title' -a href`. `htmlq` (last
+   release 2022) and `pup` (2016) are unmaintained; `domq` is a maintained
+   replacement for both, flag-compatible with `htmlq`.
+3. **LLM, RAG and agent pipelines** `ai` — turn a page into clean Markdown or
+   chunks for a prompt or an index, at the edge, on a server or as an agent's
+   MCP tool, without a headless browser.
+4. **JavaScript on the edge** `js` — Workers, Deno, Bun, the browser: no DOM
+   needed, and a ~41 KB gzipped wasm module.
+5. **Python scraping and data code** `py` — where most scraping and RAG code
+   lives; a fast, never-panicking parser with selectors and Markdown.
+6. **People who ship HTML** `ship` — docs sites, static-site generators, email
    templates: `domq lint` in CI catches missing alt text, empty links,
    duplicate ids and broken markup with `file:line:col`.
 
-Every item below should make at least one of these people's day better. If it
-doesn't, it probably doesn't belong.
+Every item below should make at least one of these people's day better, and is
+tagged with who it's for. If it doesn't help anyone, it probably doesn't
+belong.
+
+## What works where
+
+What each surface can do today, and the release that's planned to fill each
+gap (— means no plan yet).
+
+| | Rust | CLI | MCP | JavaScript | Python |
+|---|---|---|---|---|---|
+| CSS selectors | ✅ | ✅ | ✅ | ✅ | ✅ |
+| readable text, Markdown | ✅ | ✅ `-t` `-m` | ✅ | ✅ | ✅ |
+| reader mode (main content) | ✅ | ✅ `--main` | ✅ | 0.6 | 0.6 |
+| RAG chunks | ✅ | — | ✅ | 0.6 | 0.6 |
+| metadata (OpenGraph, JSON-LD, …) | ✅ | ✅ `--meta` | ✅ | 0.6 | 0.6 |
+| links and resources | ✅ | ✅ `--links` | ✅ | 0.6 | 0.6 |
+| tables, CSV | ✅ | ✅ `--csv` | ✅ | 0.6 | 0.6 |
+| declarative extraction | ✅ derive | ✅ `-e` | ✅ | — | ✅ dataclasses |
+| encoding detection from bytes | — | ✅ | — | — | 0.6 |
+| editing | ✅ | `-r` only | — | 0.8 | 0.8 |
+| streaming events | ✅ | 0.8 `--stream` | — | 0.8 | 0.8 |
+| accessibility and markup lint | — | ✅ | ✅ | — | — |
+| parse errors with positions | ✅ | via lint | via lint | ✅ | ✅ |
 
 ## Principles
 
@@ -54,7 +80,7 @@ Numbers we hold ourselves to (✅ = enforced in CI):
 | budget | limit | today |
 |---|---|---|
 | runtime dependencies, default build | **0** ✅ | 0 |
-| gzipped wasm, all bindings | **< 45 KiB** ✅ | ~40.8 KB |
+| gzipped wasm, all bindings | **< 45 KiB** ✅ | ~40.8 KB (~42.3 KB with the 0.5 parser work) |
 | panics or hangs on any input (HTML, selectors, edits) | **none** ✅ proptest + fuzz | none known |
 | stack use on deeply nested input | **bounded** ✅ 100k-deep tests | bounded |
 | super-linear time on adversarial input | **none** — every fix gets a timing test | none known |
@@ -62,21 +88,28 @@ Numbers we hold ourselves to (✅ = enforced in CI):
 | allocations per parse | **O(1)**, not O(nodes) | ~20 |
 | MSRV | **Rust 1.88** ✅ (raised only in minor releases, to versions ≥ ~6 months old) | 1.88 |
 
+The wasm budget leaves little room for bringing reader mode, chunks and the
+data helpers to JavaScript (0.6). Rather than raise it, those may ship as a
+second, optional wasm module, so the core stays small for people who only
+select and convert.
+
 ## Non-goals
 
 Deliberately out of scope. Reach for the right tool instead:
 
 - **Full WHATWG tree construction** (adoption agency, automatic
   `<html>`/`<head>`/`<body>`, foster parenting). For browser-identical trees,
-  use [`html5ever`](https://crates.io/crates/html5ever). We will *measure* how
-  far from the spec we are (see 0.5) rather than pretend.
+  use [`html5ever`](https://crates.io/crates/html5ever). We *measure* how far
+  from the spec we are (see 0.5) rather than pretend.
 - **Security sanitization.** A forgiving, non-spec parser disagrees with
   browsers on edge cases, which is exactly what mutation-XSS exploits. Use
   [`ammonia`](https://crates.io/crates/ammonia).
 - **Rendering.** No layout, no CSS cascade, no `:hover`, no JavaScript. If a
   page builds its content with script, you need a browser.
-- **Networking.** Neither the library nor the CLI fetches URLs; pipe from
-  `curl`. The MCP server (0.4) only parses HTML it is given.
+- **Networking.** Neither the library, the CLI nor the MCP server fetches
+  URLs; pipe from `curl`, or pair `domq mcp` with a fetch tool. The MCP server
+  reads only the HTML it is given and, once `--allow-read` lands (0.4.x),
+  files under a directory you name.
 - **Speed at any cost.** We stay among the fastest owned-tree parsers, but we
   won't trade safety, correctness or size for a benchmark. If raw speed over a
   borrowed tree is your only metric, use [`tl`](https://crates.io/crates/tl).
@@ -85,115 +118,203 @@ Deliberately out of scope. Reach for the right tool instead:
 
 ## How releases are ordered
 
-**Heavy work first, light polish later.** The big projects (new crates,
-protocols, measurement infrastructure) land while momentum and attention are
-highest; the medium parity work and the small quick wins follow, and many of
-those are good first issues for new contributors in the meantime. Every item is
-tagged:
+**By how many people an item unblocks, then by size.** Releases are themed
+around one group of users each, so each release finishes a job for someone
+instead of being half of several. Small items that don't need a release of
+their own live in the [anytime lane](#anytime--small-and-welcome); they land
+in whichever release is next when someone picks them up, and most are good
+first issues. Every item is tagged with its size and with who it's for:
 
 - **S**: small, a contained change in one area.
 - **M**: medium, touches several areas or a binding.
 - **L**: large, new infrastructure, a new crate, or a research-style project.
 
-## 0.3.x — Launch feedback (now)
+## Ongoing — Launch feedback
 
-The first weeks after the announcement decide whether this becomes a tool
+The first months after the announcement decide whether this becomes a tool
 people rely on.
 
 - [ ] **S** Triage every report within 48 hours; small HTML repros become corpus
       fixtures and regression tests.
-- [ ] **S** Patch releases (0.3.x) for any panic, hang, wrong match or wrong
-      output, in lock-step across crates.io, npm, PyPI and Homebrew.
+- [ ] **S** Patch releases for any panic, hang, wrong match or wrong output, in
+      lock-step across crates.io, npm, PyPI and Homebrew.
 - [ ] **S** Turn recurring questions into README cookbook entries and doc
       examples.
-- [ ] **S** Label 5–10 `good first issue`s from the light items in 0.8 below.
+- [ ] **S** Keep 5–10 `good first issue`s labelled from the
+      [anytime lane](#anytime--small-and-welcome).
 
-## 0.4 — "Declarative scraping and agents" (heavy)
+## 0.4.x — "Agents that don't pay for markup"
 
-New crates and new protocols: the biggest API additions.
+`domq mcp` saves an agent from reading raw markup, but only if the agent
+doesn't have to *write* that markup first. Today every tool takes the page as
+an `html` argument, so the agent re-types the whole page as output tokens:
+tens of thousands for an ordinary article, which is slower and costlier than
+reading the HTML. This release makes the MCP server cheap to use on real pages.
 
-- [x] **L** `#[derive(FromHtml)]` in an optional companion crate
-      (`domq-derive`; the core stays zero-dependency). Declarative
-      extraction into structs: `#[html(select = "h1")] title: String`,
-      `#[html(select = ".price", attr = "data-value")] price: f64`, `Vec<T>`
-      for repeated items, nested structs, `Option<T>`, and errors that name the
-      selector that failed. Plus a matching Python dataclass helper.
-- [x] **L** `domq mcp`: an MCP server over stdio exposing select, text,
+- [x] **L** `ai` `domq mcp`: an MCP server over stdio exposing select, text,
       Markdown, chunks, links, metadata, tables, extract and lint on HTML the
       agent provides (still no fetching). Speaks MCP 2026-07-28 and the
-      handshake-based revisions back to 2024-11-05.
+      handshake-based revisions back to 2024-11-05. *Merged; ships in the
+      next release.*
+- [ ] **M** `ai` `domq mcp --allow-read DIR`: every tool accepts a `path`
+      instead of `html`, restricted to files under DIR (no `..` or symlink
+      escapes), off by default. Documented recipe: a fetch tool that saves the
+      page to disk, then domq on the file.
+- [ ] **S** `ai` Bounded responses on every tool: `max_chars` and a cursor for
+      `chunks`, `select`, `links` and `tables`, with `truncated` reported the
+      same way everywhere, so one big page can't flood the context window.
+- [ ] **S** `ai` `domq mcp` in the official MCP Registry (a `server.json`
+      published from the release workflow) and the MCP client directories.
+- [ ] **M** `ai` `shell` Install with tools people already have: the native
+      `domq` binary in a PyPI package and in npm packages with per-platform
+      binaries (the ruff / biome model; names to be confirmed), so
+      `uvx … mcp` and `npx -y … mcp` work in MCP client configs and shell users
+      get a one-line install on every OS.
 
-## 0.5 — "Trust, measured" (heavy)
+## 0.5 — "Trust, measured"
 
-Earn trust with published numbers, not adjectives. This builds new test
-infrastructure, so it gets its own release.
+Earn trust with published numbers, not adjectives, including against the tools
+people would otherwise pick. Much of this is built on the `feat/conformance`,
+`feat/spec-recovery`, `feat/reader-benchmark` and `docs/book` branches and is
+waiting to merge.
 
-- [ ] **L** Conformance report: run the
-      [html5lib-tests](https://github.com/html5lib/html5lib-tests)
-      tree-construction suite, publish pass rates per category (marking the
-      non-goal categories honestly), and track them in CI.
+- [ ] **L** Conformance report: run the HTML tree-construction suite (the
+      html5lib tests, now maintained in web-platform-tests), publish pass rates
+      per area with the by-design gaps explained, and track them in CI.
+      *Built, in review: 1,959 tests, 0 panics, 55.5% same structure.*
 - [ ] **L** Spec-aligned recovery where it's cheap, chosen by what the
-      conformance report says matters (e.g. common formatting-element
-      mis-nesting like `<b><i></b></i>`), and only within the size budget.
-- [ ] **L** Reader-mode benchmark: score `main_content()` against a labelled
-      corpus (for example Mozilla Readability's test pages, if the licence
-      allows), publish precision and recall, and tune the heuristic with it.
-- [ ] **M** Apply to OSS-Fuzz once eligible; crashers become regression tests.
+      conformance report says matters, within the size budget.
+      *Built, in review: scoped implicit closes (`<li><a>One<li>`,
+      `<td><b>x<td>`, `<p><b>x<div>`), character references without `;`,
+      browser comment recovery, raw-text elements and `<plaintext>`; same
+      structure as a browser 55.5% → 61.8% for +1.5 KB gzipped wasm.*
+- [ ] **L** Reopen formatting elements (a bounded "adoption agency lite"):
+      `<p><b>x<p>y` keeps `y` bold, `<b><i>x</b>y</i>` keeps `y` italic. The
+      biggest remaining area in the conformance report.
+- [ ] **L** `ai` Reader-mode benchmark: score `main_content()` and
+      `metadata()` against Mozilla Readability's labelled test pages, publish
+      precision and recall, and tune the heuristic with it.
+      *Built, in review: 91.9% → 95.2% F1.*
+- [ ] **M** `ai` Metadata against the same pages: titles without the trailing
+      site name, bylines from the page text ("By Jane Doe"), more published
+      date sources.
+- [ ] **M** `ai` Reader mode and Markdown next to what RAG pipelines use today
+      — trafilatura, Readability.js, markdownify, turndown — on the same
+      labelled pages, with the numbers published either way.
+- [ ] **M** `py` `js` Benchmarks where people choose: Python against
+      BeautifulSoup (html.parser and lxml), lxml and selectolax; JavaScript
+      against cheerio, parse5, node-html-parser and linkedom. Speed and size,
+      reproducible like the Rust benchmarks.
+- [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
+      chunks: their output changes only in minor releases, under an "Output
+      changes" heading in the changelog, so re-embedding an index is planned
+      rather than a surprise.
 - [ ] **L** A docs site next to the playground: cookbook, CLI reference, and
-      migration guides from htmlq, scraper, BeautifulSoup and cheerio.
+      migration guides from htmlq, pup, scraper, BeautifulSoup and cheerio.
+      *Built, in review (pup still to write).*
+- [ ] **M** Apply to OSS-Fuzz once eligible, and run ClusterFuzzLite on every
+      PR and nightly in the meantime; crashers become regression tests.
+- [ ] **S** More budgets: CLI binary size, wheel size, and a regression
+      threshold on the weekly benchmark instead of a report only.
 
-## 0.6 — "Huge documents" (heavy)
+## 0.6 — "Where people are: Python, JavaScript and RAG"
 
-For inputs too big to hold as a tree, and for comparing documents in tests.
+Reader mode, chunks and the data helpers are what personas 3–5 come for, and
+today they exist only in Rust, the CLI and MCP. Bring them to the bindings
+before anything else.
 
-- [ ] **L** Streaming selectors: run a `Selector` over `domq::events` for
-      multi-gigabyte dumps without building a tree; CLI `--stream`.
-- [ ] **L** `domq diff a.html b.html`: a structural diff (node-level,
-      whitespace-insensitive) for snapshot tests of rendered pages.
-
-## 0.7 — "Parity and reach" (medium)
-
-Bring the bindings and integrations up to the Rust crate, and meet people where
-they install software.
-
-- [ ] **M** Python parity: editing API, `events()`, reusable `Selector` objects.
-- [ ] **M** JS parity: editing on `Document` and `events()` in the wasm package,
-      inside the size budget.
-- [ ] **M** Optional `<tbody>`/`<colgroup>` insertion: a builder option for
-      browser-identical table structure.
-- [ ] **M** Context-aware fragments: `append_html` and `parse_fragment_in("tr",
-      …)` parse in the parent's context (a `<td>` inside a `<tr>`).
-- [ ] **M** A reusable GitHub Action for `domq lint` that annotates pull
-      requests.
-- [ ] **M** Continuous fuzzing on every PR and nightly (ClusterFuzzLite).
-- [ ] **M** More package managers: Scoop / winget (Windows), Nix, AUR, and a
-      tiny Docker image.
+- [ ] **M** `py` Python: `main_content()`, `metadata()`, `links()` /
+      `resources()`, `to_markdown_chunks()`, `table_rows()` and CSV,
+      `resolve_url`, and reusable `Selector` objects.
+- [ ] **S** `py` `domq.parse(bytes)` with the CLI's encoding detection (BOM,
+      `<meta charset>`, UTF-8, Windows-1252): `requests`' `r.content` and
+      Scrapy's `response.body` are bytes.
+- [ ] **M** `js` JavaScript: `mainContent()`, `metadata()`, `links()`,
+      `toMarkdownChunks()` and `tables()`, inside the size budget — as a
+      second, optional wasm module if the core can't hold them.
+- [ ] **S** `ai` Token-aware chunking: `to_markdown_chunks_by(max, |s| tokens(s))`
+      with your own tokenizer, optional overlap, and stable chunk ids for
+      incremental re-indexing; in every binding.
+- [ ] **S** `ai` Output options for LLMs: links as numbered footnotes or
+      stripped, image alt text inline or dropped, tables kept as HTML when
+      spans don't fit Markdown; for `to_text` and `to_markdown`.
+- [ ] **M** `py` `ai` Integrations: a LangChain document transformer and a
+      LlamaIndex reader (in a companion package, or as documented recipes),
+      and tables into pandas.
+- [ ] **S** `py` More wheels: musllinux x86_64 / aarch64 (Alpine images),
+      Windows arm64, free-threaded CPython 3.14t; and conda-forge.
+- [ ] **S** `js` Publish to JSR for Deno; Cloudflare Workers and Deno
+      examples, and when to use domq rather than Workers' `HTMLRewriter`.
 - [ ] **M** Playground "copy as Rust / JS / Python / CLI" for the current
       selector, so it doubles as a code generator.
+- [ ] **M** More package managers: Scoop / winget (Windows), Nix, AUR, and a
+      tiny Docker image.
 
-## 0.8 — "Quick wins" (light)
+## 0.7 — "Lint for teams"
 
-Small, high-value polish that makes existing features nicer to use and the
-project cheaper to release. Most items are good first issues and can land in
-any 0.x release before this if a contributor picks them up.
+Everything a team needs to put `domq lint` in CI and keep it there, in one
+release.
 
-- [ ] **S** `domq lint` for teams: `--allow` / `--deny` per rule, a summary
-      line, `--format sarif` for GitHub code scanning.
-- [ ] **S** `Selection` helpers, chainable and allocation-light:
+- [ ] **S** `ship` `--allow` / `--deny` per rule, a summary line, and
+      `--format sarif` for GitHub code scanning.
+- [ ] **S** `ship` Inline suppressions (`<!-- domq-disable-next-line img-alt -->`)
+      and a config file, so a team can adopt the linter on an existing site.
+- [ ] **M** `ship` More rules people expect: `html-lang`, `missing-title`,
+      `form-label`, `iframe-title`, nested interactive elements (an `<a>` in a
+      `<button>`), and in-page anchors that point at no `id`.
+- [ ] **M** `ship` `rust` Local link checking: relative `href` / `src` that
+      point at files that don't exist, for static sites (no network).
+- [ ] **M** `ship` A reusable GitHub Action for `domq lint` that annotates pull
+      requests.
+- [ ] **S** `ship` A pre-commit hook for `domq lint`.
+
+## 0.8 — "Huge documents and full trees"
+
+For inputs too big to hold as a tree, for comparing documents in tests, and
+for the rest of the binding parity.
+
+- [ ] **L** `rust` `shell` Streaming selectors: run a `Selector` over
+      `domq::events` for multi-gigabyte dumps without building a tree; CLI
+      `--stream`.
+- [ ] **L** `rust` `shell` `domq diff a.html b.html`: a structural diff
+      (node-level, whitespace-insensitive) for snapshot tests of rendered pages.
+- [ ] **M** `py` Python: editing API and `events()`.
+- [ ] **M** `js` JavaScript: editing on `Document` and `events()` in the wasm
+      package, inside the size budget.
+- [ ] **M** `rust` Optional `<tbody>`/`<colgroup>` insertion: a builder option
+      for browser-identical table structure.
+- [ ] **M** `rust` Context-aware fragments: `append_html` and
+      `parse_fragment_in("tr", …)` parse in the parent's context (a `<td>`
+      inside a `<tr>`).
+
+## Anytime — small and welcome
+
+Small, high-value polish that doesn't need a release of its own. Most items are
+good first issues; each lands in whichever release is next.
+
+- [ ] **S** `shell` Several inputs in one run (`-f` repeatable), with
+      grep-style `FILE:` prefixes and a `file` field in `--jsonl`.
+- [ ] **S** `shell` `--exit-status`: exit 1 when nothing matches, for
+      `if domq --exit-status …; then`. The default stays htmlq-compatible.
+- [ ] **S** `shell` Shell completions (bash, zsh, fish, PowerShell) and a man
+      page, generated from `--help` and shipped in the release archives and
+      the Homebrew formula.
+- [ ] **S** `shell` A warning on stderr when `<meta charset>` names an encoding
+      the CLI can't decode (Shift_JIS, GBK, …), instead of silent mojibake.
+- [ ] **S** `rust` `Selection` helpers, chainable and allocation-light:
       `dom.select("a").attrs("href")`, `.texts()`, `.first()`, `.len()`.
-- [ ] **S** Reusable parser: `Dom::parse_into(&mut self, html)` reuses the arenas,
-      so a crawler parsing millions of pages stops allocating per page.
-- [ ] **S** Token-aware chunking: `to_markdown_chunks_by(max, |s| tokens(s))` with
-      your own tokenizer, optional overlap, and stable chunk ids for
-      incremental re-indexing.
-- [ ] **S** LLM-friendly text: links as numbered footnotes and image alt text
-      inline, as `to_text` options.
+- [ ] **S** `rust` Reusable parser: `Dom::parse_into(&mut self, html)` reuses
+      the arenas, so a crawler parsing millions of pages stops allocating per
+      page.
+- [ ] **S** `rust` Cookbook: fetching with `reqwest` / `ureq`, and parsing
+      pages in parallel with rayon.
+- [ ] **S** A counting-allocator test, so the allocations-per-parse budget is
+      enforced in CI.
 - [ ] **S** Release automation: one command bumps every version in lock-step
       (crate, CLI, wasm, Python) and drafts the changelog; the release workflow
       updates the Homebrew tap itself (token scoped to the tap repo).
 - [ ] **S** Supply chain: signed build provenance (GitHub artifact attestations)
       and an SBOM attached to every release.
-- [ ] **S** A pre-commit hook for `domq lint`.
 - [ ] **M** Playground: reader-mode, chunks, metadata and lint tabs, within the
       wasm size budget.
 
@@ -204,13 +325,19 @@ any 0.x release before this if a contributor picks them up.
 - [ ] The public API is reviewed against the Rust API Guidelines, with
       `#[non_exhaustive]` where growth is expected and no known breaking
       changes pending.
-- [ ] A written MSRV policy, e.g. raised only in minor releases and never past
-      the stable release from six months earlier.
+- [x] A written MSRV policy (see [Budgets](#budgets)).
 - [ ] Conformance and reader-mode numbers are published and tracked.
 - [ ] Months of continuous fuzzing with no open crashers.
 - [ ] Used by real projects (a "used by" list in the README).
 - [ ] SemVer covers everything people script against: the crate API, CLI
-      flags, output formats and exit codes, and the JS and Python APIs.
+      flags, output formats and exit codes, the MCP tools and their schemas,
+      and the JS and Python APIs.
+- [ ] The output-stability policy (0.5) has held for at least two minor
+      releases.
+- [ ] A deprecation policy: anything removed is deprecated, with a warning,
+      for at least one minor release first.
+- [ ] A written support policy for Python, Node and Deno versions.
+- [ ] A security response target in [SECURITY.md](./SECURITY.md).
 
 ---
 
@@ -218,16 +345,16 @@ any 0.x release before this if a contributor picks them up.
 
 Being easy to *get* matters as much as features.
 
-**Done in 0.3.0:** crates.io (`domq`, `domq-cli`), `cargo binstall`,
+**Done:** crates.io (`domq`, `domq-cli`, `domq-derive`), `cargo binstall`,
 release binaries (Linux x86_64/arm64, macOS, Windows) with checksums, WASI build,
 Homebrew tap, npm (trusted publishing, provenance), PyPI (trusted publishing,
 abi3 wheels), and the playground.
 
-**Planned:** `domq mcp` in the official MCP Registry (a `server.json` published
-from the release workflow) and the MCP client directories (0.4.x); the docs
-site (0.5); Scoop / winget / Nix / AUR / Docker (0.7);
-release automation and the Homebrew tap auto-update (0.8); homebrew-core once
-the project meets its notability bar.
+**Planned:** the MCP Registry and `uvx` / `npx`-launchable binaries (0.4.x);
+the docs site (0.5); musllinux, Windows arm64 and free-threaded wheels,
+conda-forge, JSR, Scoop / winget / Nix / AUR / Docker (0.6); release
+automation and the Homebrew tap auto-update (anytime); homebrew-core once the
+project meets its notability bar.
 
 ## Community
 
@@ -241,11 +368,12 @@ the project meets its notability bar.
 
 Ideas we like but haven't committed to. Prototypes and use-cases welcome.
 
-- **MCP file access, opt-in**: `domq mcp --allow-read DIR` so an agent can
-  pass a path under DIR instead of pasting large HTML into a tool call.
+- **More encodings in the CLI** (Shift_JIS, GBK, EUC-KR, ISO-8859-x) through
+  an optional `encoding_rs` feature, used in the release binaries.
 - **WASI component (WIT)** so any component runtime can call the parser.
 - **More bindings** (C ABI, Ruby, PHP, Go via wasm) if there's demand.
-- **Language-server-lite** — lint diagnostics in editors, using source spans.
+- **Language-server-lite** — lint diagnostics in editors, using source spans;
+  a natural follow-up to lint for teams (0.7).
 - **`domq fmt`** — an HTML formatter built on the pretty-printer and spans.
 - **XPath subset** — only with strong demand; CSS covers most real queries.
 - **Incremental re-parse** for editors.
@@ -255,17 +383,43 @@ Ideas we like but haven't committed to. Prototypes and use-cases welcome.
 - **Borrowed-tree mode** — measured in 0.3: string copying is 10–15% of parse
   time on dense markup and nothing on prose, and it would need a lifetime on
   `Dom` or a second API. Numbers in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+- **Fetching inside `domq mcp`** — agents already have fetch tools, and
+  fetching brings TLS, redirects, robots.txt and server-side request forgery
+  into a project that has none of them. A fetch tool that saves to disk plus
+  `--allow-read` gives the same savings. We'll revisit if that pairing proves
+  impractical.
 - **Fetching URLs**, **sanitization**, **full WHATWG** — see non-goals.
 
 ---
 
 ## Shipped
 
+### 0.4.0 — 2026-10-22 · "Declarative scraping"
+
+Details in the [changelog](./CHANGELOG.md#040--2026-10-22).
+
+- [x] **One name everywhere:** the crate `domq`, the CLI `domq-cli` (binary
+      `domq`), the npm package `domq-wasm`, the PyPI package and import
+      `domq`, and `brew install iamsaquib8/tap/domq`.
+- [x] `#[derive(FromHtml)]` in the optional companion crate `domq-derive`
+      (the core stays zero-dependency): declarative extraction into structs
+      with `select`, `attr`, `html`, `markdown`, `default`, `with`, `Option<T>`,
+      `Vec<T>`, nested and generic structs, compile-time diagnostics, and
+      errors that name the field path and selector that failed.
+- [x] Python `domq.extract` / `extract_all`: the same extraction into
+      dataclasses with `Annotated[T, Select(...)]`, with the same error paths
+      and messages as Rust.
+- [x] MSRV 1.88, Python 3.11+; `to_text()` / `to_markdown()` called *on* a
+      hidden element return its content.
+
 ### 0.3.0 — 2026-10-21 · "One-line scraping"
 
 Everything below shipped in 0.3.0 (what was planned as phases 0.3–0.7, plus
 distribution and two rounds of review fixes). Details in the
 [changelog](./CHANGELOG.md).
+
+<details>
+<summary>Everything in 0.3.0</summary>
 
 **Selectors** (the `query` feature, now on by default)
 
@@ -383,6 +537,8 @@ distribution and two rounds of review fixes). Details in the
       size gate, zero-dependency gate, Python, WASI, Pages, release.
 - [x] Project: README redesign, `CODE_OF_CONDUCT.md`, `SECURITY.md`,
       `docs/ARCHITECTURE.md`, issue/PR templates, dependabot, launch kit.
+
+</details>
 
 ### 0.2 — 2026-06
 
