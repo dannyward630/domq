@@ -297,7 +297,7 @@ impl<'a> TextCollector<'a> {
         if display == Display::Hidden {
             return false;
         }
-        if self.hidden.is_none() && !self.open.is_empty() && is_hidden(node) {
+        if self.hidden.is_none() && !self.open.is_empty() && node.hides_itself() {
             self.hidden = Some(node.id());
         }
         if self.hidden.is_none()
@@ -325,28 +325,6 @@ impl<'a> TextCollector<'a> {
         let &(_, index) = self.open.last()?;
         self.done.get_mut(index)
     }
-}
-
-/// Whether `node` hides itself: a `hidden` attribute, or an inline `style`
-/// with a `display: none` or `visibility: hidden` declaration (names and
-/// values ASCII case-insensitive, `!important` allowed; no CSS cascade).
-fn is_hidden(node: NodeRef<'_>) -> bool {
-    node.has_attr("hidden")
-        || node.attr("style").is_some_and(|style| {
-            style.split(';').any(|declaration| {
-                let Some((name, value)) = declaration.split_once(':') else {
-                    return false;
-                };
-                let name = name.trim_matches(|c: char| c.is_ascii_whitespace());
-                let value = value
-                    .split(|c: char| c.is_ascii_whitespace() || c == '!')
-                    .find(|v| !v.is_empty())
-                    .unwrap_or("");
-                (name.eq_ignore_ascii_case("display") && value.eq_ignore_ascii_case("none"))
-                    || (name.eq_ignore_ascii_case("visibility")
-                        && value.eq_ignore_ascii_case("hidden"))
-            })
-        })
 }
 
 impl<'a> LinkText<'a> {

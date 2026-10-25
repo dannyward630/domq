@@ -142,9 +142,14 @@ infrastructure, so it gets its own release.
 - [ ] **L** Reopen formatting elements (a bounded "adoption agency lite"):
       `<p><b>x<p>y` keeps `y` bold, `<b><i>x</b>y</i>` keeps `y` italic. The
       biggest remaining area in the conformance report.
-- [ ] **L** Reader-mode benchmark: score `main_content()` against a labelled
-      corpus (for example Mozilla Readability's test pages, if the licence
-      allows), publish precision and recall, and tune the heuristic with it.
+- [x] **L** Reader-mode benchmark: score `main_content()` against Mozilla
+      Readability's 130 labelled pages, publish precision and recall
+      ([docs/reader-mode.md](docs/reader-mode.md)), and tune the heuristic
+      with it: 91.9% → 95.2% F1 (whole page: 82.1%). Also scores
+      `metadata()` per field.
+- [ ] **M** Metadata against the same pages: titles without the trailing
+      site name, bylines from the page text ("By Jane Doe"), more published
+      date sources (48.8% / 36.8% / 48.5% agreement today).
 - [ ] **M** Apply to OSS-Fuzz once eligible; crashers become regression tests.
 - [ ] **L** A docs site next to the playground: cookbook, CLI reference, and
       migration guides from htmlq, scraper, BeautifulSoup and cheerio.

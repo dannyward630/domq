@@ -136,7 +136,7 @@ jobs:
           test "$SIZE" -lt 46080
 
   conformance:
-    name: conformance (html5lib tests, from WPT)
+    name: conformance (html5lib tests, Readability pages)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -146,7 +146,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: conformance
-      - name: Fetch the tree-construction tests (pinned WPT commit)
+      - name: Fetch the test data (pinned WPT and Readability commits)
         run: sh conformance/fetch.sh
       - name: rustfmt + clippy + self-tests (harness)
         run: |
@@ -157,6 +157,8 @@ jobs:
       # must come with the regenerated report, so the diff shows it.
       - name: docs/conformance.md is up to date
         run: cargo run --release --manifest-path conformance/Cargo.toml -- --check docs/conformance.md
+      - name: docs/reader-mode.md is up to date
+        run: cargo run --release --manifest-path conformance/Cargo.toml --bin reader -- --check docs/reader-mode.md
 
   fuzz:
     name: fuzz (build + smoke)

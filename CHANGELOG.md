@@ -25,7 +25,23 @@ All notable changes to this project are documented here. The format is based on
   every parser change shows its effect. First run: 0 panics, 4.1% exact, 55.5%
   same structure.
 
+- **Reader-mode benchmark.** `conformance/` also scores `main_content()`
+  and `metadata()` against Mozilla Readability's 130 labelled test pages and
+  writes [docs/reader-mode.md](docs/reader-mode.md) (checked in CI like the
+  conformance report). `--explain PAGE` shows what was picked and missed.
+
 ### Changed
+- **Better reader mode** (95.2% F1 against Readability, from 91.9%; the
+  whole page scores 82.1%): a Schema.org `itemprop="articleBody"` is the
+  first semantic hint, a block with no block inside it counts as a paragraph
+  (`<div><span>…</span></div>`, as Readability counts it), and widening
+  climbs over the rest of an article split into sibling blocks, tolerating a
+  small ad slot between them.
+- **`to_text` and `to_markdown` skip elements hidden** with the `hidden`
+  attribute or an inline `display: none` / `visibility: hidden`, as a
+  browser's `innerText` does (link text already did). Hidden text, a common
+  place for prompt injections aimed at LLM agents, no longer reaches the
+  output.
 - **Trees closer to a browser's** (conformance: 55.5% → 61.8% same
   structure). Each change follows the HTML standard's recovery:
   - Implicit closes look past unclosed inline elements, within the
