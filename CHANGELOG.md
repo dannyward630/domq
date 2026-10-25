@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+**Output changes** (anything that changes the text `to_text`, `to_markdown`
+or the chunks produce, what `main_content()` picks, or the parsed tree) ship
+only in minor releases and are listed under their own heading, so you know
+when to re-embed. See [Output stability](./README.md#output-stability).
+
 ## [Unreleased]
 
 ### Added
@@ -62,6 +67,21 @@ Markdown if exact text matters. `ErrorKind` gains `MissingSemicolon`
   selectors and the MCP server, and migration guides from htmlq, scraper,
   BeautifulSoup and cheerio. CI runs its Rust examples and checks the CLI
   page against `domq --help`.
+
+### Output changes
+Listed here in hindsight (the policy above starts with 0.6): re-embed
+content indexed with 0.4 if exact text matters.
+- **Tree:** mis-nested list items, cells and paragraphs close as in browsers
+  (`<li><a>One<li><a>Two` gives two items), so text and Markdown from such
+  pages change shape.
+- **Text and Markdown:** character references without `;` decode
+  (`&copy 2026` → `© 2026`); elements hidden with `hidden` or inline
+  `display:none` / `visibility:hidden` are left out; the raw-text elements
+  (`<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`) keep their
+  content as text.
+- **Reader mode:** `main_content()` picks differently on many pages (an
+  `articleBody` first, div/span paragraphs counted, split articles kept
+  whole).
 
 ### Changed
 - **Better reader mode** (95.2% F1 against Readability, from 91.9%; the

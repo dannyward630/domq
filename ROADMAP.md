@@ -195,10 +195,11 @@ people rely on.
       already 0.981).
 - [ ] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
       on its real-page corpus; until then, word it as measured.
-- [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
+- [x] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
       chunks: output changes only in minor releases, under an "Output changes"
       heading in the changelog, so re-embedding an index is planned rather
-      than a surprise. (0.5.0's changes are listed that way in hindsight.)
+      than a surprise ([README](./README.md#output-stability); 0.5.0's
+      changes are listed that way in hindsight).
 
 ## 0.5.x — "Agents that don't pay for markup"
 

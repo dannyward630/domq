@@ -482,6 +482,17 @@ parenting, namespaces). See the [non-goals](./ROADMAP.md#non-goals).
 
 Rust **1.88** (edition 2024), enforced in CI. Raised only in minor releases.
 
+## Output stability
+
+If you embed or index domq's output, re-embedding should be planned, not a
+surprise. The text it produces (`to_text`, `to_markdown`,
+`to_markdown_chunks`, the choice `main_content()` makes, and the same output
+from the CLI, the MCP tools, JavaScript and Python) changes **only in minor
+releases** (0.5 → 0.6), and every such change is listed under an **"Output
+changes"** heading in the [changelog](./CHANGELOG.md). Patch releases keep it
+identical, except to fix a panic or a hang. The parsed tree follows the same
+rule, so selectors keep matching what they matched.
+
 ## Quality
 
 Property-tested ("never panics" + tree invariants), snapshot-tested against a
