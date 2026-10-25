@@ -46,7 +46,9 @@ pub enum Event<'a> {
         /// input), or it is a void or self-closing element.
         implied: bool,
     },
-    /// Character data: entity-decoded, except inside `<script>`/`<style>`.
+    /// Character data: entity-decoded, except inside raw-text elements
+    /// (`<script>`, `<style>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`,
+    /// `<plaintext>`).
     /// CDATA sections are text too. Adjacent text can arrive in several
     /// pieces (a stray `<` is its own piece), exactly like the tree's text
     /// nodes.

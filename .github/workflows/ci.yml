@@ -160,6 +160,25 @@ jobs:
       - name: docs/reader-mode.md is up to date
         run: cargo run --release --manifest-path conformance/Cargo.toml --bin reader -- --check docs/reader-mode.md
 
+  book:
+    name: guide (mdBook build + examples)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+      # The book's Rust examples link against the library alone, built into
+      # its own target dir so exactly one `domq` rlib is on the path.
+      - name: Test the book's Rust examples
+        run: |
+          CARGO_TARGET_DIR=target/book cargo build --lib
+          mdbook test book -L target/book/debug/deps
+      - name: Build the book
+        run: mdbook build book
+
   fuzz:
     name: fuzz (build + smoke)
     runs-on: ubuntu-latest

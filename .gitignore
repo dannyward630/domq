@@ -10,3 +10,6 @@ Cargo.lock
 /fuzz/corpus/
 /fuzz/artifacts/
 /.claude/worktrees/
+
+# mdBook output
+/book/book/
