@@ -193,7 +193,8 @@ tests/pages/messy.html:7:54: warning: stray end tag with no matching open elemen
 | `mismatched-end-tag` | warning | an end tag that also closed such elements (`<b><i>x</b>`) |
 | `stray-end-tag`, `unterminated-tag`, `unterminated-comment`, `unterminated-cdata`, `unexpected-eof`, `bogus-comment` | warning | other markup the parser recovered from |
 | `implicitly-closed` | note | an omitted *optional* end tag (`</li>`, `</p>`, `</td>`, …) — valid HTML |
-| `unknown-entity` | note | an `&` that starts no known character reference (also a bare `&` in a URL) |
+| `unknown-entity` | note | an `&name;` or `&#…` that is no character reference, left as written |
+| `missing-semicolon` | note | a character reference without its `;`, decoded anyway as browsers do (`&copy 2026`; also a URL in text: `?a=1&copy=2` reads as `?a=1©=2`) |
 
 Every parse error the parser recovers from is reported; the source positions of
 the elements it closed decide whether it was valid HTML (a note) or a real

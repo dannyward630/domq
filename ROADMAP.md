@@ -133,9 +133,15 @@ infrastructure, so it gets its own release.
       pass rates per area with the by-design gaps explained, and track them
       in CI ([docs/conformance.md](docs/conformance.md): 1,959 tests, 0
       panics, 55.5% same structure).
-- [ ] **L** Spec-aligned recovery where it's cheap, chosen by what the
-      conformance report says matters (e.g. common formatting-element
-      mis-nesting like `<b><i></b></i>`), and only within the size budget.
+- [x] **L** Spec-aligned recovery where it's cheap, chosen by what the
+      conformance report says matters, within the size budget (+1.5 KB
+      gzipped wasm): scoped implicit closes (`<li><a>One<li>`, `<td><b>x<td>`,
+      `<p><b>x<div>`), character references without `;`, browser comment
+      recovery, the other raw-text elements and `<plaintext>`, stray `</p>`,
+      `</br>`, `<image>`. Same structure as a browser: 55.5% → 61.8%.
+- [ ] **L** Reopen formatting elements (a bounded "adoption agency lite"):
+      `<p><b>x<p>y` keeps `y` bold, `<b><i>x</b>y</i>` keeps `y` italic. The
+      biggest remaining area in the conformance report.
 - [ ] **L** Reader-mode benchmark: score `main_content()` against a labelled
       corpus (for example Mozilla Readability's test pages, if the licence
       allows), publish precision and recall, and tune the heuristic with it.

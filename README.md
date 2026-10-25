@@ -445,16 +445,24 @@ yourself: `cd benchmarks && cargo bench`.
 
 ## What it handles
 
-Void elements, self-closing tags, comments, doctypes, CDATA, raw text
-(`<script>`/`<style>`), escapable raw text (`<title>`/`<textarea>`), boolean and
-unquoted attributes, hyphenated/namespaced/custom tags, named + numeric entities
-(with browser-style Windows-1252 remapping), and implicit closing for the everyday
-cases (`<li>`, `<p>`, table cells/rows, `<dt>`/`<dd>`, `<option>`). Everything it
-recovers from is recorded in
+Void elements, self-closing tags, comments (including browsers' recovery of
+`<!-->` and `--!>`), doctypes, CDATA, raw text (`<script>`, `<style>`, `<xmp>`,
+`<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`), escapable raw text
+(`<title>`/`<textarea>`), boolean and unquoted attributes,
+hyphenated/namespaced/custom tags, named + numeric entities (with browser-style
+Windows-1252 remapping, and a missing `;` recovered where browsers do:
+`&copy 2026`, `&#169`), and implicit closing as browsers scope it: a `<li>`,
+`<dd>`/`<dt>`, table cell or row closes its predecessor even past unclosed
+inline elements (`<li><a>One<li><a>Two`), a block closes an open `<p>` past them
+(`<p><b>x<div>`), a stray `</p>` makes an empty paragraph, `</br>` is a `<br>`.
+Everything it recovers from is recorded in
 [`Dom::errors`](https://docs.rs/domq/latest/domq/struct.Dom.html#method.errors).
+How close the trees are to a browser's is measured in
+[docs/conformance.md](./docs/conformance.md).
 
-**Deliberately not done:** full WHATWG tree construction (adoption agency, automatic
-`<html>`/`<head>`/`<body>`, foster parenting). See the [non-goals](./ROADMAP.md#non-goals).
+**Deliberately not done:** full WHATWG tree construction (adoption agency and
+reopening formatting elements, automatic `<html>`/`<head>`/`<body>`, foster
+parenting, namespaces). See the [non-goals](./ROADMAP.md#non-goals).
 
 ## Cargo features
 
@@ -481,7 +489,7 @@ corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 
 **Measured against browsers:** CI runs the 1,959 HTML tree-construction tests
 (html5lib, in web-platform-tests) and publishes the results in
-[docs/conformance.md](./docs/conformance.md): 0 panics, and 55.5% of trees
+[docs/conformance.md](./docs/conformance.md): 0 panics, and 61.8% of trees
 match a browser's structure in domq's model (no implied `<html>`/`<body>`),
 with the gaps explained area by area.
 

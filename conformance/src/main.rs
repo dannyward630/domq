@@ -703,9 +703,10 @@ text and comments. A test that fails here is a real difference from a browser.
 ### Where the gaps are by design
 
 - **Mis-nested formatting**: browsers run the adoption agency algorithm on
-  `<b><p>x</b>y</p>`, cloning formatting elements across blocks; domq closes
-  the formatting element and moves on. Cheap common cases are on the
-  [roadmap](../ROADMAP.md) for 0.5.
+  `<b><p>x</b>y</p>`, cloning formatting elements across blocks, and reopen
+  formatting elements a block closed; domq closes the formatting element and
+  moves on. A bounded version is the next item on the
+  [roadmap](../ROADMAP.md).
 - **Tables**: browsers move stray content out of tables (foster parenting)
   and insert `<tbody>`; domq keeps content where it appears. Optional
   `<tbody>` insertion is planned for 0.7.

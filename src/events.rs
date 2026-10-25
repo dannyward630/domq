@@ -149,7 +149,7 @@ impl<'a> Sink<'a> for Queue<'a> {
         open
     }
 
-    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<usize> {
+    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<entities::Problem> {
         let (value, unknown) = entities::decode(value, true);
         self.attrs.push((lower(name), value));
         unknown
@@ -184,7 +184,7 @@ impl<'a> Sink<'a> for Queue<'a> {
         decode: bool,
         start: usize,
         end: usize,
-    ) -> Option<usize> {
+    ) -> Option<entities::Problem> {
         let (text, unknown) = if decode {
             entities::decode(text, false)
         } else {

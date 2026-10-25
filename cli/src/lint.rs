@@ -593,6 +593,7 @@ fn tag_end(rest: &str) -> Option<usize> {
 fn other_parse_error(src: &str, e: &ParseError) -> Raw {
     let (level, rule) = match e.kind {
         ErrorKind::UnknownEntity => (Level::Note, "unknown-entity"),
+        ErrorKind::MissingSemicolon => (Level::Note, "missing-semicolon"),
         ErrorKind::StrayEndTag => (Level::Warning, "stray-end-tag"),
         ErrorKind::UnterminatedTag => (Level::Warning, "unterminated-tag"),
         ErrorKind::UnterminatedComment => (Level::Warning, "unterminated-comment"),
