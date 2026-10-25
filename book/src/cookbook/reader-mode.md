@@ -1,0 +1,73 @@
+# Pages to Markdown for LLMs and RAG
+
+Raw HTML wastes a model's context on markup, navigation and scripts. domq
+turns a page into the article as clean Markdown, or into chunks ready for an
+embedding model.
+
+## The article, as Markdown
+
+```rust
+# extern crate domq;
+let dom = domq::parse(r#"<body>
+  <nav><a href="/">Home</a> <a href="/blog">Blog</a></nav>
+  <article>
+    <h1>Arena trees</h1>
+    <p>An arena stores every node in one vector, and links them by index.</p>
+    <p>Traversal is cheap, removal is a flag, and nothing is reference-counted.</p>
+  </article>
+  <footer>© 2026</footer>
+</body>"#);
+
+let article = dom.main_content().expect("an article");
+let md = article.to_markdown();
+assert!(md.starts_with("# Arena trees"));
+assert!(!md.contains("Home"));
+```
+
+`main_content()` is a small, deterministic cousin of Mozilla's Readability:
+semantic hints first (a Schema.org `articleBody`, a single `<article>` or
+`<main>`), then paragraph scoring with boilerplate (navigation, sidebars,
+comments, share bars) discounted. It returns `None` when no container stands
+out; use the whole document then. Its agreement with Firefox's reader view is
+[measured](../measured.md) on 130 real pages.
+
+From the shell, and in JavaScript:
+
+```sh
+curl -sL https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/ | domq --main --markdown
+```
+
+```js
+import { toMarkdown } from "domq-wasm";
+toMarkdown(html, "article");   // or toMarkdown(html) for the whole page
+```
+
+## Chunks for embeddings
+
+```rust
+# extern crate domq;
+let dom = domq::parse(
+    "<h1>Guide</h1><p>Welcome.</p><h2>Install</h2><p>Run the installer.</p>",
+);
+for chunk in dom.to_markdown_chunks(500) {
+    // `context()` is the heading path, e.g. "Guide > Install": prepend it
+    // when embedding so every chunk stands on its own.
+    println!("{} | {}", chunk.context(), chunk.markdown);
+}
+```
+
+Chunks split at blank lines (never inside a code block), start new sections at
+headings, and carry the headings they sit under.
+
+## What gets dropped
+
+`to_text` and `to_markdown` leave out what a reader would not see: `<head>`,
+`<script>`, `<style>`, `<template>`, and elements hidden with the `hidden`
+attribute or an inline `display: none` / `visibility: hidden`. Hidden text is
+a favourite place for prompt injections aimed at LLM agents, so it never
+reaches your model.
+
+## Agents
+
+An agent with the MCP server calls `markdown` with `main: true`, or `chunks`,
+on the HTML it fetched. See [AI agents (MCP)](../mcp.md).

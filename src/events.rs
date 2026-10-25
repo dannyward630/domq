@@ -46,7 +46,9 @@ pub enum Event<'a> {
         /// input), or it is a void or self-closing element.
         implied: bool,
     },
-    /// Character data: entity-decoded, except inside `<script>`/`<style>`.
+    /// Character data: entity-decoded, except inside raw-text elements
+    /// (`<script>`, `<style>`, `<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`,
+    /// `<plaintext>`).
     /// CDATA sections are text too. Adjacent text can arrive in several
     /// pieces (a stray `<` is its own piece), exactly like the tree's text
     /// nodes.
@@ -149,7 +151,7 @@ impl<'a> Sink<'a> for Queue<'a> {
         open
     }
 
-    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<usize> {
+    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<entities::Problem> {
         let (value, unknown) = entities::decode(value, true);
         self.attrs.push((lower(name), value));
         unknown
@@ -184,7 +186,7 @@ impl<'a> Sink<'a> for Queue<'a> {
         decode: bool,
         start: usize,
         end: usize,
-    ) -> Option<usize> {
+    ) -> Option<entities::Problem> {
         let (text, unknown) = if decode {
             entities::decode(text, false)
         } else {

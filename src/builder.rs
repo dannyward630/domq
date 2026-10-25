@@ -31,6 +31,7 @@
 use alloc::borrow::Cow;
 use alloc::vec::Vec;
 
+use crate::entities::Problem;
 use crate::error::{ErrorKind, ParseError};
 use crate::node::{AttrRange, NodeId, RawKind, Span, SrcRange};
 use crate::tags;
@@ -65,10 +66,9 @@ pub(crate) trait Sink<'a> {
 
     /// One attribute of the start tag about to be reported by
     /// [`Sink::start`], as written: the name not yet lower-cased, the value
-    /// not yet entity-decoded. Returns where decoding met the first
-    /// reference-shaped `&…` it left verbatim: a byte offset into `value`
-    /// (see [`crate::entities::decode_into`]).
-    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<usize>;
+    /// not yet entity-decoded. Returns the first problem decoding met, at a
+    /// byte offset into `value` (see [`crate::entities::decode_into`]).
+    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<Problem>;
 
     /// An element starts, inside `parent` (`None`: at the top level). Its
     /// `attrs` attributes were just passed to [`Sink::attr`].
@@ -86,9 +86,8 @@ pub(crate) trait Sink<'a> {
     /// self-closing start tag).
     fn end(&mut self, open: Self::Open, start: usize, end: usize, implied: bool);
 
-    /// Character data, entity-decoded if `decode`. Returns where decoding met
-    /// the first reference-shaped `&…` it left verbatim: a byte offset into
-    /// `text`.
+    /// Character data, entity-decoded if `decode`. Returns the first problem
+    /// decoding met, at a byte offset into `text`.
     fn text(
         &mut self,
         parent: Option<&Self::Open>,
@@ -96,7 +95,7 @@ pub(crate) trait Sink<'a> {
         decode: bool,
         start: usize,
         end: usize,
-    ) -> Option<usize>;
+    ) -> Option<Problem>;
 
     /// A comment (or bogus comment).
     fn comment(&mut self, parent: Option<&Self::Open>, text: &'a str, start: usize, end: usize);
@@ -182,7 +181,7 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
     /// Pop the current node: it ends at `start..end` (see [`Sink::end`]).
     #[inline]
     fn pop(&mut self, start: usize, end: usize, implied: bool) {
-        if let Some(open) = self.open.pop() {
+        if let Some(open) = self.open.pop(&self.sink) {
             self.sink.end(open, start, end, implied);
         }
     }
@@ -195,7 +194,30 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
         pos: usize,
         end: usize,
     ) {
-        let lname = lower(name);
+        let mut lname = lower(name);
+        // `<image>` is a misspelled `<img>` outside SVG and MathML (where
+        // `<image>` is a real element), as in browsers.
+        if lname == "image"
+            && self.open.find(&self.sink, "svg").is_none()
+            && self.open.find(&self.sink, "math").is_none()
+        {
+            lname = Cow::Borrowed("img");
+        }
+
+        // A start tag that closes an element further down (a `<li>` past an
+        // unclosed `<a>`, a `<div>` past a `<b>` in a `<p>`): close what sits
+        // above that element first.
+        for p in [false, true] {
+            if let Some(idx) = self.open.closed_by(&self.sink, &lname, p) {
+                while self.open.len() > idx + 1 {
+                    self.pop(pos, pos, true);
+                    self.error(pos, ErrorKind::ImplicitlyClosed);
+                }
+                // The element found is now the current node.
+                self.pop(pos, pos, true);
+                self.error(pos, ErrorKind::ImplicitlyClosed);
+            }
+        }
 
         // Implicit close: pop open elements that this start tag closes.
         // They end where this tag starts.
@@ -210,10 +232,10 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
 
         for &(k, v) in attrs {
             let value = v.as_str();
-            if let Some(at) = self.sink.attr(k, value) {
+            if let Some((at, kind)) = self.sink.attr(k, value) {
                 // At the `&`; the tag's start if the value can't be located.
                 let at = self.source_offset(value).map_or(pos, |offset| offset + at);
-                self.error(at, ErrorKind::UnknownEntity);
+                self.error(at, kind);
             }
         }
         let void = self_closing || tags::is_void(&lname);
@@ -223,12 +245,17 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
         if void {
             self.sink.end(open, end, end, true);
         } else {
-            self.open.push(open);
+            self.open.push(&self.sink, open);
         }
     }
 
     fn end_tag(&mut self, name: &'a str, pos: usize, end: usize) {
         let lname = lower(name);
+        if lname == "br" {
+            // Browsers read `</br>` as `<br>`.
+            self.start_tag("br", &[], false, pos, end);
+            return;
+        }
         if tags::is_void(&lname) {
             return; // void elements never have end tags
         }
@@ -252,7 +279,15 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
                 }
                 self.pop(pos, end, false);
             }
-            None => self.error(pos, ErrorKind::StrayEndTag),
+            None => {
+                self.error(pos, ErrorKind::StrayEndTag);
+                if lname == "p" {
+                    // A `</p>` with no `<p>` open: browsers insert an empty
+                    // one (`<p><hr></p>` has two paragraphs).
+                    self.start_tag("p", &[], false, pos, pos);
+                    self.pop(pos, end, false);
+                }
+            }
         }
     }
 
@@ -271,8 +306,8 @@ impl<'a, S: Sink<'a>> TreeBuilder<'a, S> {
             self.error(pos, ErrorKind::ImplicitlyClosed);
         }
         // A text token's string starts at the token.
-        if let Some(at) = self.sink.text(self.open.top(), t, !raw, pos, end) {
-            self.error(pos + at, ErrorKind::UnknownEntity);
+        if let Some((at, kind)) = self.sink.text(self.open.top(), t, !raw, pos, end) {
+            self.error(pos + at, kind);
         }
     }
 }
@@ -320,7 +355,7 @@ impl<'a> Sink<'a> for DomSink {
     }
 
     #[inline]
-    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<usize> {
+    fn attr(&mut self, name: &'a str, value: &'a str) -> Option<Problem> {
         let key = self.dom.intern_lower(name);
         let (value, unknown) = self.dom.intern_decoded(value, true);
         self.dom.attrs.push((key, value));
@@ -367,7 +402,7 @@ impl<'a> Sink<'a> for DomSink {
         decode: bool,
         start: usize,
         end: usize,
-    ) -> Option<usize> {
+    ) -> Option<Problem> {
         let (span, unknown) = if decode {
             self.dom.intern_decoded(text, false)
         } else {
@@ -416,14 +451,27 @@ const OUTER_END_TAG_SEARCH: usize = 8;
 /// (`<div>`×N then `</x>`×N) unbounded scans would be quadratic. The scan is
 /// therefore bounded: [`MAX_END_TAG_SEARCH`] elements from the top, then the
 /// bottom [`OUTER_END_TAG_SEARCH`] — O(1) per end tag, whatever the names.
+///
+/// The same bound applies to a start tag that closes an element below the
+/// current node ([`OpenElements::closed_by`]); and that scan only runs while
+/// an element it could close is open, counted in `open_p` and `open_items`.
 struct OpenElements<O> {
     /// Open elements, innermost last; their names come from the sink.
     stack: Vec<O>,
+    /// How many `<p>` are open.
+    open_p: usize,
+    /// How many list items, cells, rows, table sections and captions are
+    /// open (what [`tags::search`] closes).
+    open_items: usize,
 }
 
 impl<O> Default for OpenElements<O> {
     fn default() -> Self {
-        OpenElements { stack: Vec::new() }
+        OpenElements {
+            stack: Vec::new(),
+            open_p: 0,
+            open_items: 0,
+        }
     }
 }
 
@@ -439,13 +487,32 @@ impl<O> OpenElements<O> {
     }
 
     #[inline]
-    fn push(&mut self, open: O) {
+    fn push<'a, S: Sink<'a, Open = O>>(&mut self, sink: &S, open: O) {
+        self.count(sink.name(&open), true);
         self.stack.push(open);
     }
 
     #[inline]
-    fn pop(&mut self) -> Option<O> {
-        self.stack.pop()
+    fn pop<'a, S: Sink<'a, Open = O>>(&mut self, sink: &S) -> Option<O> {
+        let open = self.stack.pop()?;
+        self.count(sink.name(&open), false);
+        Some(open)
+    }
+
+    #[inline]
+    fn count(&mut self, name: &str, pushed: bool) {
+        let counter = match name {
+            "p" => &mut self.open_p,
+            "li" | "dd" | "dt" | "td" | "th" | "tr" | "thead" | "tbody" | "tfoot" | "caption" => {
+                &mut self.open_items
+            }
+            _ => return,
+        };
+        *counter = if pushed {
+            counter.saturating_add(1)
+        } else {
+            counter.saturating_sub(1)
+        };
     }
 
     /// Whether every element above stack index `idx` has an optional end tag.
@@ -457,6 +524,34 @@ impl<O> OpenElements<O> {
             .unwrap_or(&[])
             .iter()
             .all(|open| tags::end_tag_optional(sink.name(open)))
+    }
+
+    /// The stack index of the open element that the start tag `opening`
+    /// closes: by [`tags::p_search`] with `p`, else by [`tags::search`];
+    /// looking at the [`MAX_END_TAG_SEARCH`] innermost elements.
+    fn closed_by<'a, S: Sink<'a, Open = O>>(
+        &self,
+        sink: &S,
+        opening: &str,
+        p: bool,
+    ) -> Option<usize> {
+        let (search, open): (tags::SearchFn, usize) = if p {
+            (tags::p_search, self.open_p)
+        } else {
+            (tags::search, self.open_items)
+        };
+        if open == 0 {
+            return None;
+        }
+        let inner = self.stack.len().saturating_sub(MAX_END_TAG_SEARCH);
+        for i in (inner..self.stack.len()).rev() {
+            match search(opening, sink.name(self.stack.get(i)?))? {
+                tags::Search::Closes => return Some(i),
+                tags::Search::Stops => return None,
+                tags::Search::Continue => {}
+            }
+        }
+        None
     }
 
     /// The stack index of the open element named `name` that an end tag

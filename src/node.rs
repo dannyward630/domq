@@ -69,7 +69,8 @@ pub enum NodeKind<'a> {
         /// The lower-cased tag name (e.g. `"div"`).
         tag: &'a str,
     },
-    /// A run of text (already entity-decoded, except inside `<script>`/`<style>`).
+    /// A run of text (already entity-decoded, except inside raw-text elements
+    /// such as `<script>` and `<style>`).
     Text(&'a str),
     /// The body of an HTML comment.
     Comment(&'a str),

@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-25
+
+"Trust, measured": an MCP server for agents, and published numbers for how
+close domq's trees are to a browser's and how well reader mode finds the
+article, with the parser and the heuristic tuned against them.
+
+**Upgrading from 0.4:** no API was removed. Trees, text and Markdown change
+for some inputs, each time to match browsers (see "Changed"): mis-nested list
+items, cells and paragraphs; character references without `;`; hidden
+elements in `to_text`/`to_markdown`. Re-embed indexes built from 0.4's
+Markdown if exact text matters. `ErrorKind` gains `MissingSemicolon`
+(it is `#[non_exhaustive]`, so matches with a `_` arm keep compiling).
+
 ### Added
 - **`domq mcp`: an MCP server for AI agents.** The CLI serves the Model
   Context Protocol over stdio with nine read-only tools: `markdown`, `text`,
@@ -16,6 +29,63 @@ All notable changes to this project are documented here. The format is based on
   handshake-based revisions back to 2024-11-05. Zero dependencies: the CLI
   carries its own small JSON parser. Set up with
   `claude mcp add domq -- domq mcp`; see `domq mcp --help`.
+
+- **Conformance report.** `conformance/` runs the 1,959 HTML
+  tree-construction tests (html5lib, now maintained in web-platform-tests)
+  against domq and writes [docs/conformance.md](docs/conformance.md): pass
+  rates per area for exact trees and for structure in domq's model, with the
+  by-design gaps explained. CI regenerates it and fails when it changes, so
+  every parser change shows its effect. First run: 0 panics, 4.1% exact, 55.5%
+  same structure.
+
+- **Reader-mode benchmark.** `conformance/` also scores `main_content()`
+  and `metadata()` against Mozilla Readability's 130 labelled test pages and
+  writes [docs/reader-mode.md](docs/reader-mode.md) (checked in CI like the
+  conformance report). `--explain PAGE` shows what was picked and missed.
+
+- **The guide**, a docs site next to the playground
+  (<https://iamsaquib8.github.io/domq/docs/>, built with mdBook from `book/`):
+  install, a quick start in Rust, the shell, JavaScript and Python, a
+  cookbook (scraping, extraction, Markdown for LLMs and RAG, links, metadata
+  and tables, editing, streaming, linting in CI), references for the CLI,
+  selectors and the MCP server, and migration guides from htmlq, scraper,
+  BeautifulSoup and cheerio. CI runs its Rust examples and checks the CLI
+  page against `domq --help`.
+
+### Changed
+- **Better reader mode** (95.2% F1 against Readability, from 91.9%; the
+  whole page scores 82.1%): a Schema.org `itemprop="articleBody"` is the
+  first semantic hint, a block with no block inside it counts as a paragraph
+  (`<div><span>…</span></div>`, as Readability counts it), and widening
+  climbs over the rest of an article split into sibling blocks, tolerating a
+  small ad slot between them.
+- **`to_text` and `to_markdown` skip elements hidden** with the `hidden`
+  attribute or an inline `display: none` / `visibility: hidden`, as a
+  browser's `innerText` does (link text already did). Hidden text, a common
+  place for prompt injections aimed at LLM agents, no longer reaches the
+  output.
+- **Trees closer to a browser's** (conformance: 55.5% → 61.8% same
+  structure). Each change follows the HTML standard's recovery:
+  - Implicit closes look past unclosed inline elements, within the
+    standard's scopes: `<li><a>One<li><a>Two` gives two list items (it used
+    to nest the second inside the first link), `<td><b>x<td>` two cells, and a
+    block start tag closes an open `<p>` past inline elements
+    (`<p><b>x<div>` puts the `<div>` after the paragraph).
+  - Character references without their `;` decode where browsers decode
+    them: numeric ones (`&#169 2026`) and the 106 legacy names (`&copy 2026`,
+    `AT&ampT`), except in an attribute before `=` or an alphanumeric
+    (`?a=1&copy=2` stays). They are reported as the new
+    `ErrorKind::MissingSemicolon` (lint rule `missing-semicolon`) instead of
+    `UnknownEntity`. The default table gains the 23 legacy names it lacked
+    (`&AMP`, `&COPY`, …).
+  - Comments: `<!-->` and `<!--->` are empty comments, `--!>` also closes
+    one, a comment cut off at the end drops its trailing dashes, and `<?xml>`
+    becomes the comment `?xml` (with its `?`). `</` at the end of the input
+    is text, `</>` is dropped, and `</ x>` or `</#>` is a bogus comment.
+  - `<xmp>`, `<iframe>`, `<noembed>` and `<noframes>` hold raw text like
+    `<script>`, and everything after `<plaintext>` is its text.
+  - A stray `</p>` inserts an empty paragraph, `</br>` is a `<br>`, and
+    `<image>` is an `<img>` (outside SVG and MathML).
 
 ### Fixed
 - Docs: the README's Cargo snippet asked for `domq = "0.3"`, which does not

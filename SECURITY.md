@@ -6,9 +6,9 @@ Security fixes are released for the latest minor version of each package:
 
 | package | supported |
 |---|---|
-| `domq` (crate) | 0.4.x |
-| `domq-cli` (crate / binaries) | 0.4.x |
-| `domq-wasm` (npm) | 0.4.x |
+| `domq` (crate) | 0.5.x |
+| `domq-cli` (crate / binaries) | 0.5.x |
+| `domq-wasm` (npm) | 0.5.x |
 
 ## What counts as a vulnerability
 

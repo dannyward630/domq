@@ -28,9 +28,13 @@ pub(crate) fn is_void(name: &str) -> bool {
 }
 
 /// Elements whose content is raw text: `<` does not start a tag inside them,
-/// and entities are *not* decoded. Scanning runs until the matching end tag.
+/// and entities are *not* decoded. Scanning runs until the matching end tag
+/// (for `<plaintext>`, to the end of the input).
 pub(crate) fn is_raw_text(name: &str) -> bool {
-    matches!(name, "script" | "style")
+    matches!(
+        name,
+        "script" | "style" | "xmp" | "iframe" | "noembed" | "noframes" | "plaintext"
+    )
 }
 
 /// Elements the tokenizer reads as text up to their end tag: the raw-text
@@ -170,6 +174,191 @@ pub(crate) fn implicitly_closes(opening: &str, open: &str) -> bool {
         "colgroup" => !matches!(opening, "col" | "template"),
         _ => false,
     }
+}
+
+/// [`search`] or [`p_search`].
+pub(crate) type SearchFn = fn(&str, &str) -> Option<Search>;
+
+/// What a start tag finds at one open element while looking past the
+/// current node for an element it closes (see [`search`]).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Search {
+    /// The start tag closes this element (and everything above it).
+    Closes,
+    /// The search ends here: this element is a scope boundary.
+    Stops,
+    /// Look further down.
+    Continue,
+}
+
+/// For the start tags WHATWG lets close an element *below* the current node,
+/// what `opening` finds at the open element `open`; `None` for every other
+/// start tag ([`implicitly_closes`] only looks at the current node).
+///
+/// * `<li>`, `<dd>`, `<dt>` close the open list item of their kind, looking
+///   past anything but a "special" element (other than `address`, `div` and
+///   `p`): `<li><a>One<li>` gives two items.
+/// * Table rows, cells and sections close the open cell, row, section or
+///   caption they end, looking past anything but `table`, `template` or
+///   `html` (table scope): `<td><b>x<td>` gives two cells.
+///
+/// After that, a start tag that closes a `<p>` closes one in "button scope"
+/// ([`p_search`]). The elements above the one closed are closed with it;
+/// browsers would reopen formatting elements among them (`<b>`, `<i>`, …)
+/// inside the new element, which domq does not.
+pub(crate) fn search(opening: &str, open: &str) -> Option<Search> {
+    let found = |closes: bool, stops: bool| {
+        Some(if closes {
+            Search::Closes
+        } else if stops {
+            Search::Stops
+        } else {
+            Search::Continue
+        })
+    };
+    match opening {
+        "li" => found(
+            open == "li",
+            is_special(open) && !matches!(open, "address" | "div" | "p"),
+        ),
+        "dd" | "dt" => found(
+            matches!(open, "dd" | "dt"),
+            is_special(open) && !matches!(open, "address" | "div" | "p"),
+        ),
+        "td" | "th" | "tr" => found(
+            implicitly_closes(opening, open),
+            matches!(open, "table" | "template" | "html"),
+        ),
+        o if table_structure(o) => found(
+            implicitly_closes(opening, open),
+            matches!(open, "table" | "template" | "html"),
+        ),
+        _ => None,
+    }
+}
+
+/// [`search`] for the `<p>` that `opening` closes, if it closes one: in
+/// "button scope", past inline elements but not past a table, cell, caption,
+/// button, object, applet, marquee, template, SVG or MathML.
+pub(crate) fn p_search(opening: &str, open: &str) -> Option<Search> {
+    if !closes_p(opening) {
+        return None;
+    }
+    Some(if open == "p" {
+        Search::Closes
+    } else if matches!(
+        open,
+        "applet"
+            | "button"
+            | "caption"
+            | "html"
+            | "marquee"
+            | "math"
+            | "object"
+            | "svg"
+            | "table"
+            | "td"
+            | "template"
+            | "th"
+    ) {
+        Search::Stops
+    } else {
+        Search::Continue
+    })
+}
+
+/// WHATWG's "special" elements (13.2.4.2), which end the search of
+/// [`search`] for list items.
+fn is_special(name: &str) -> bool {
+    matches!(
+        name,
+        "address"
+            | "applet"
+            | "area"
+            | "article"
+            | "aside"
+            | "base"
+            | "basefont"
+            | "bgsound"
+            | "blockquote"
+            | "body"
+            | "br"
+            | "button"
+            | "caption"
+            | "center"
+            | "col"
+            | "colgroup"
+            | "dd"
+            | "details"
+            | "dialog"
+            | "dir"
+            | "div"
+            | "dl"
+            | "dt"
+            | "embed"
+            | "fieldset"
+            | "figcaption"
+            | "figure"
+            | "footer"
+            | "form"
+            | "frame"
+            | "frameset"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "head"
+            | "header"
+            | "hgroup"
+            | "hr"
+            | "html"
+            | "iframe"
+            | "img"
+            | "input"
+            | "keygen"
+            | "li"
+            | "link"
+            | "listing"
+            | "main"
+            | "marquee"
+            | "menu"
+            | "meta"
+            | "nav"
+            | "noembed"
+            | "noframes"
+            | "noscript"
+            | "object"
+            | "ol"
+            | "p"
+            | "param"
+            | "plaintext"
+            | "pre"
+            | "script"
+            | "search"
+            | "section"
+            | "select"
+            | "source"
+            | "style"
+            | "summary"
+            | "table"
+            | "tbody"
+            | "td"
+            | "template"
+            | "textarea"
+            | "tfoot"
+            | "th"
+            | "thead"
+            | "title"
+            | "tr"
+            | "track"
+            | "ul"
+            | "wbr"
+            | "xmp"
+            | "svg"
+            | "math"
+    )
 }
 
 /// Whether non-whitespace text implicitly closes the open element `open`:

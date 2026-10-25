@@ -17,7 +17,10 @@ impl Dom {
     /// The document as readable plain text.
     ///
     /// Unlike [`NodeRef::text_content`], this is what a reader sees: no
-    /// `<head>`/`<script>`/`<style>` content, whitespace collapsed, a new line
+    /// `<head>`/`<script>`/`<style>` content, no element hidden by a `hidden`
+    /// attribute or an inline `display: none` / `visibility: hidden` (as a
+    /// browser's `innerText`; text hidden from people never reaches an LLM
+    /// either), whitespace collapsed, a new line
     /// for each block element, a blank line between paragraphs, `<br>` as a line
     /// break, tab-separated table cells and `<pre>` kept verbatim. The result
     /// has no trailing whitespace on lines, no runs of blank lines, and no
@@ -109,6 +112,9 @@ impl Text {
             self.lists = self.lists.saturating_sub(1);
         }
         let root = self.root == Some(node.id());
+        if !root && node.hides_itself() {
+            return false;
+        }
         match tags::display(tag) {
             Display::Hidden if !root => return false,
             // The node itself, though hidden: a block. A `<script>` or

@@ -1,6 +1,6 @@
 //! HTML character-reference (entity) decoding.
 //!
-//! By default we decode the ~180 named entities that actually appear in
+//! By default we decode the ~200 named entities that actually appear in
 //! real-world content plus full numeric references (`&#169;`, `&#xA9;`, with
 //! the browser's Windows-1252 remapping of `&#128;`–`&#159;`). Unknown named
 //! references are left **verbatim** (browser-ish behaviour) and reported via
@@ -10,15 +10,17 @@
 //! 2,125 `;`-terminated names (generated into `src/entities_full.rs` by
 //! `scripts/gen_entities.py`; looked up by binary search).
 //!
-//! Either way a named reference needs its `;`: the legacy no-semicolon
-//! spellings browsers also accept (`&amp`, `&copy`) stay verbatim. Whether
-//! one of those is *reported* depends only on WHATWG's 106 legacy names
-//! ([`LEGACY`]), never on which table is compiled in, so both builds report
-//! the same thing.
+//! As in browsers, a missing `;` is recovered where WHATWG says so: numeric
+//! references end at the last digit (`&#169 2026`), and the 106 legacy names
+//! ([`LEGACY`], in both tables) decode without it (`&copy 2026`, `AT&ampT`),
+//! except in an attribute value when an alphanumeric or `=` follows
+//! (`?a=1&copy=2` stays as written). Each of those is reported as
+//! [`ErrorKind::MissingSemicolon`](crate::ErrorKind::MissingSemicolon).
 
 use alloc::borrow::Cow;
 use alloc::string::String;
 
+use crate::error::ErrorKind;
 use crate::scan;
 
 /// Maximum length we will scan looking for a closing `;`. Real entity names are
@@ -29,13 +31,15 @@ const MAX_ENTITY_LEN: usize = 32;
 /// The Unicode replacement character, used for out-of-range / null numeric refs.
 const REPLACEMENT: char = '\u{FFFD}';
 
+/// What decoding reports: the byte offset of an `&` and what was wrong.
+pub(crate) type Problem = (usize, ErrorKind);
+
 /// Decode HTML entities in `input`.
 ///
 /// Returns the decoded text (borrowed unchanged when there is nothing to do)
-/// and, if a reference-shaped `&…` was left verbatim, the byte offset in
-/// `input` of the first one's `&`. `in_attr` selects the attribute-value
-/// reporting rule (see [`decode_into`]).
-pub(crate) fn decode(input: &str, in_attr: bool) -> (Cow<'_, str>, Option<usize>) {
+/// and the first [`Problem`], if any. `in_attr` selects the attribute-value
+/// rules (see [`decode_into`]).
+pub(crate) fn decode(input: &str, in_attr: bool) -> (Cow<'_, str>, Option<Problem>) {
     if scan::find_byte(b'&', input.as_bytes()).is_none() {
         return (Cow::Borrowed(input), None);
     }
@@ -45,21 +49,23 @@ pub(crate) fn decode(input: &str, in_attr: bool) -> (Cow<'_, str>, Option<usize>
 }
 
 /// Append `input` to `out` with its HTML entities decoded (the tree builder
-/// decodes straight into its string arena, with no temporary). If a
-/// reference-shaped `&…` was left verbatim, returns the byte offset in `input`
-/// of the first one's `&` (the parser adds the token's source offset to it).
+/// decodes straight into its string arena, with no temporary). Returns the
+/// first [`Problem`]: its offset is the `&`'s in `input` (the parser adds the
+/// token's source offset to it).
 ///
-/// Reporting follows WHATWG: an unknown `&name;` or a malformed `&#…` is always
-/// reported. So is one of the legacy names browsers accept without a `;`
-/// ([`LEGACY`]) written without it: in text when the run of letters and digits
-/// after the `&` *starts* with one (`AT&ampT`, `&copy 2026`, `&notin`); in an
-/// attribute value only when the run *is* one and no `=` follows
-/// (`title="&copy"`), since there a legacy name followed by an alphanumeric or
-/// `=` is valid
-/// (`?a=1&region=eu`, `&copyright=x`). Any other `&` is plain text, valid
-/// HTML, and not reported (`&order=1`, `tom&nearby`, `x &ne y`).
-pub(crate) fn decode_into(input: &str, out: &mut String, in_attr: bool) -> Option<usize> {
-    let mut unknown = None;
+/// Decoding follows WHATWG. A numeric reference may end without its `;`
+/// (`&#169 2026`). A named one is the longest known `&name;`, else the
+/// longest legacy name ([`LEGACY`]) at the start of the run of letters and
+/// digits after the `&`, so `&notit;` is `¬it;` and `AT&ampT` is `AT&T` —
+/// but in an attribute value a legacy name followed by an alphanumeric or `=`
+/// is plain text (`?a=1&copy=2`, `&copyright=x`). A reference decoded
+/// without its `;` is reported as [`ErrorKind::MissingSemicolon`].
+///
+/// An unknown `&name;` or a malformed `&#…` stays verbatim and is reported as
+/// [`ErrorKind::UnknownEntity`]. Any other `&` is plain text, valid HTML, and
+/// not reported (`a & b`, `&order=1`, `tom&nearby`, `x &ne y`).
+pub(crate) fn decode_into(input: &str, out: &mut String, in_attr: bool) -> Option<Problem> {
+    let mut problem = None;
     let mut rest = input;
 
     while let Some(amp) = scan::find_byte(b'&', rest.as_bytes()) {
@@ -77,15 +83,21 @@ pub(crate) fn decode_into(input: &str, out: &mut String, in_attr: bool) -> Optio
             }
         };
 
-        match decode_one(after, out) {
-            Some(consumed) => rest = after.get(consumed..).unwrap_or(""),
+        // `rest` is a suffix of `input` and `amp` indexes it.
+        let at = input.len() - rest.len() + amp;
+        match decode_one(after, out, in_attr) {
+            Some((consumed, terminated)) => {
+                if !terminated && problem.is_none() {
+                    problem = Some((at, ErrorKind::MissingSemicolon));
+                }
+                rest = after.get(consumed..).unwrap_or("");
+            }
             None => {
                 // Not a valid reference: keep the '&' verbatim and continue.
                 // Only a reference-shaped `&…` is reported; a bare `&`
                 // (`a & b`, `?a=1&b=2`) is valid HTML.
-                if unknown.is_none() && looks_like_reference(after, in_attr) {
-                    // `rest` is a suffix of `input` and `amp` indexes it.
-                    unknown = Some(input.len() - rest.len() + amp);
+                if problem.is_none() && looks_like_reference(after, in_attr) {
+                    problem = Some((at, ErrorKind::UnknownEntity));
                 }
                 out.push('&');
                 rest = after;
@@ -93,13 +105,13 @@ pub(crate) fn decode_into(input: &str, out: &mut String, in_attr: bool) -> Optio
         }
     }
     out.push_str(rest);
-    unknown
+    problem
 }
 
 /// The names WHATWG also recognizes without their `;` ("legacy" references,
 /// for compatibility with old content): the 106 keys of
 /// <https://html.spec.whatwg.org/entities.json> with no trailing `;`, sorted
-/// in byte order for [`is_legacy`]'s binary search. Each is also a
+/// in byte order for [`longest_legacy_prefix`]. Each is also a
 /// `;`-terminated name.
 const LEGACY: [&str; 106] = [
     "AElig", "AMP", "Aacute", "Acirc", "Agrave", "Aring", "Atilde", "Auml", "COPY", "Ccedil",
@@ -120,61 +132,91 @@ const LEGACY_MIN_LEN: usize = 2;
 /// …and of the longest (`middot`, `frac12`, …).
 const LEGACY_MAX_LEN: usize = 6;
 
-/// Whether `name` is one of the [`LEGACY`] names.
-fn is_legacy(name: &str) -> bool {
-    LEGACY.binary_search(&name).is_ok()
+/// The length of the longest [`LEGACY`] name `run` starts with.
+fn longest_legacy_prefix(run: &str) -> Option<usize> {
+    let key = run.get(..run.len().min(LEGACY_MAX_LEN))?;
+    // Every name that is a prefix of `key` sorts at or before it, and every
+    // name sorting between such a prefix and `key` starts with that prefix:
+    // so the candidates are the run of names just before `key` that share
+    // its first letter.
+    let end = LEGACY.partition_point(|name| *name <= key);
+    LEGACY
+        .get(..end)?
+        .iter()
+        .rev()
+        .take_while(|name| name.as_bytes().first() == key.as_bytes().first())
+        .filter(|name| key.starts_with(*name))
+        .map(|name| name.len())
+        .max()
+        .filter(|&len| len >= LEGACY_MIN_LEN)
 }
 
-/// Whether the text after an undecodable `&` was meant as a reference, by the
-/// rules described on [`decode_into`].
-fn looks_like_reference(after: &str, in_attr: bool) -> bool {
+/// Whether the text after an `&` that [`decode_one`] left alone was meant as
+/// a reference: a malformed `&#…`, or an unknown `&name;`.
+fn looks_like_reference(after: &str, _in_attr: bool) -> bool {
     let bytes = after.as_bytes();
     if bytes.first() == Some(&b'#') {
         return true;
     }
-    let n = bytes
+    let n = alphanumeric_run(bytes);
+    n > 0 && bytes.get(n) == Some(&b';')
+}
+
+/// The length of the run of ASCII letters and digits starting `bytes`, up to
+/// [`MAX_ENTITY_LEN`].
+fn alphanumeric_run(bytes: &[u8]) -> usize {
+    bytes
         .iter()
         .take(MAX_ENTITY_LEN)
         .take_while(|b| b.is_ascii_alphanumeric())
-        .count();
-    let Some(run) = after.get(..n).filter(|r| !r.is_empty()) else {
-        return false;
-    };
-    if bytes.get(n) == Some(&b';') {
-        return true;
-    }
-    if in_attr {
-        // A legacy name followed by `=` or an alphanumeric is valid in
-        // attributes; the run ends at the first non-alphanumeric.
-        return is_legacy(run) && bytes.get(n) != Some(&b'=');
-    }
-    // In text, a legacy name at the start of the run is a missing `;`.
-    (LEGACY_MIN_LEN..=n.min(LEGACY_MAX_LEN)).any(|len| run.get(..len).is_some_and(is_legacy))
+        .count()
 }
 
-/// Try to decode a single reference whose text begins right after the `&`.
-/// On success appends what it decodes to to `out` and returns how many bytes
-/// of `after` were consumed (including the trailing `;`).
-fn decode_one(after: &str, out: &mut String) -> Option<usize> {
-    // Search bytes, not a `&str` window: a window cut at a fixed byte count can
-    // land inside a multi-byte character. `;` is ASCII, so `semi` is always a
-    // char boundary.
-    let semi = after
-        .as_bytes()
-        .iter()
-        .take(MAX_ENTITY_LEN)
-        .position(|&b| b == b';')?;
-    let name = after.get(..semi)?;
-    if name.is_empty() {
+/// Try to decode a single reference whose text begins right after the `&`
+/// (rules on [`decode_into`]). On success appends what it decodes to to `out`
+/// and returns how many bytes of `after` it used, and whether it ended with
+/// its `;`.
+fn decode_one(after: &str, out: &mut String, in_attr: bool) -> Option<(usize, bool)> {
+    let bytes = after.as_bytes();
+    if bytes.first() == Some(&b'#') {
+        let (radix, start) = match bytes.get(1) {
+            Some(b'x' | b'X') => (16, 2),
+            _ => (10, 1),
+        };
+        let digits = bytes
+            .get(start..)?
+            .iter()
+            .take_while(|&&b| char::from(b).is_digit(radix))
+            .count();
+        if digits == 0 {
+            return None;
+        }
+        let end = start + digits;
+        out.push(numeric(after.get(start..end)?, radix));
+        return Some(match bytes.get(end) {
+            Some(b';') => (end + 1, true),
+            _ => (end, false),
+        });
+    }
+    let n = alphanumeric_run(bytes);
+    let run = after.get(..n)?;
+    if n > 0
+        && bytes.get(n) == Some(&b';')
+        && let Some(value) = named(run)
+    {
+        out.push_str(value);
+        return Some((n + 1, true));
+    }
+    let len = longest_legacy_prefix(run)?;
+    if in_attr
+        && bytes
+            .get(len)
+            .is_some_and(|&b| b == b'=' || b.is_ascii_alphanumeric())
+    {
         return None;
     }
-
-    if let Some(stripped) = name.strip_prefix('#') {
-        out.push(numeric(stripped)?);
-    } else {
-        out.push_str(named(name)?);
-    }
-    Some(semi + 1)
+    out.push_str(named(run.get(..len)?)?);
+    Some((len, false))
 }
 
 /// What numeric references `&#x80;`–`&#x9F;` decode to (WHATWG): the C1
@@ -188,24 +230,18 @@ const WINDOWS_1252: [u16; 32] = [
     0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178, // 98–9F
 ];
 
-/// Decode a numeric reference body (the part after `&#`): `123` or `x1F600`.
+/// Decode a numeric reference's digits (after `&#` or `&#x`), all valid in
+/// `radix`.
 ///
 /// `0`, surrogates and anything above U+10FFFF (however many digits) decode to
 /// U+FFFD; `0x80..=0x9F` go through [`WINDOWS_1252`].
-fn numeric(digits: &str) -> Option<char> {
-    let (body, radix) = match digits.strip_prefix(['x', 'X']) {
-        Some(hex) => (hex, 16),
-        None => (digits, 10),
-    };
-    if body.is_empty() {
-        return None;
-    }
+fn numeric(digits: &str, radix: u32) -> char {
     // Saturate rather than overflow: every out-of-range value is U+FFFD.
     let mut code: u32 = 0;
-    for c in body.chars() {
+    for c in digits.chars() {
         code = code
             .saturating_mul(radix)
-            .saturating_add(c.to_digit(radix)?)
+            .saturating_add(c.to_digit(radix).unwrap_or(0))
             .min(0x11_0000);
     }
     if let Some(&mapped) = code
@@ -214,11 +250,9 @@ fn numeric(digits: &str) -> Option<char> {
     {
         code = u32::from(mapped);
     }
-    Some(
-        char::from_u32(code)
-            .filter(|&c| c != '\0')
-            .unwrap_or(REPLACEMENT),
-    )
+    char::from_u32(code)
+        .filter(|&c| c != '\0')
+        .unwrap_or(REPLACEMENT)
 }
 
 /// Look up a named reference (the part between `&` and `;`): the curated
@@ -418,6 +452,30 @@ fn curated(name: &str) -> Option<&'static str> {
         "Ouml" => "\u{d6}",
         "Uuml" => "\u{dc}",
         "Oslash" => "\u{d8}",
+        // The rest of the legacy names (decoded even without `;`).
+        "AMP" => "&",
+        "LT" => "<",
+        "GT" => ">",
+        "QUOT" => "\"",
+        "COPY" => "\u{a9}",
+        "REG" => "\u{ae}",
+        "Atilde" => "\u{c3}",
+        "Igrave" => "\u{cc}",
+        "Iacute" => "\u{cd}",
+        "Icirc" => "\u{ce}",
+        "Iuml" => "\u{cf}",
+        "Ecirc" => "\u{ca}",
+        "Euml" => "\u{cb}",
+        "ETH" => "\u{d0}",
+        "Ograve" => "\u{d2}",
+        "Oacute" => "\u{d3}",
+        "Ocirc" => "\u{d4}",
+        "Otilde" => "\u{d5}",
+        "Ugrave" => "\u{d9}",
+        "Uacute" => "\u{da}",
+        "Ucirc" => "\u{db}",
+        "Yacute" => "\u{dd}",
+        "THORN" => "\u{de}",
         // Greek (the commonly seen ones)
         "alpha" => "\u{3b1}",
         "beta" => "\u{3b2}",
@@ -441,7 +499,56 @@ fn curated(name: &str) -> Option<&'static str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{LEGACY, LEGACY_MAX_LEN, LEGACY_MIN_LEN, decode};
+    use super::{LEGACY, LEGACY_MAX_LEN, LEGACY_MIN_LEN, decode, named};
+    use crate::error::ErrorKind::{MissingSemicolon, UnknownEntity};
+    use alloc::string::String;
+
+    fn text(s: &str) -> String {
+        decode(s, false).0.into_owned()
+    }
+
+    fn attr(s: &str) -> String {
+        decode(s, true).0.into_owned()
+    }
+
+    #[test]
+    fn every_legacy_name_decodes() {
+        for name in LEGACY {
+            assert!(named(name).is_some(), "&{name};");
+        }
+    }
+
+    #[test]
+    fn numeric_references_without_semicolon() {
+        assert_eq!(text("FOO&#41BAR"), "FOO)BAR");
+        assert_eq!(text("FOO&#x41ZOO"), "FOOAZOO");
+        assert_eq!(text("FOO&#x41BAR"), "FOO\u{41ba}R"); // hex digits run on
+        assert_eq!(text("&#169 2026"), "\u{a9} 2026");
+        assert_eq!(text("&#0000000000000000000000000000000065;"), "A");
+        assert_eq!(text("&#x; &#z &#"), "&#x; &#z &#");
+        assert_eq!(decode("a&#41b", false).1, Some((1, MissingSemicolon)));
+    }
+
+    #[test]
+    fn legacy_names_without_semicolon() {
+        assert_eq!(text("FOO&gtBAR"), "FOO>BAR");
+        assert_eq!(text("AT&ampT"), "AT&T");
+        assert_eq!(text("I'm &notit; I tell you"), "I'm \u{ac}it; I tell you");
+        assert_eq!(text("&notin; &ampersand;"), "\u{2209} &ersand;");
+        assert_eq!(text("&copy 2026 &COPY"), "\u{a9} 2026 \u{a9}");
+        // Only legacy names work without `;`, and unknown names stay.
+        assert_eq!(
+            text("&hellip &order=1 tom&nearby"),
+            "&hellip &order=1 tom&nearby"
+        );
+    }
+
+    #[test]
+    fn attributes_keep_legacy_names_before_alphanumerics_and_equals() {
+        assert_eq!(attr("?a=1&copy=2&ampx"), "?a=1&copy=2&ampx");
+        assert_eq!(attr("&copy &amp;x &copy"), "\u{a9} &x \u{a9}");
+        assert_eq!(attr("&lt;b&gt;"), "<b>");
+    }
 
     #[test]
     fn legacy_table_is_sorted_for_binary_search() {
@@ -457,12 +564,19 @@ mod tests {
     }
 
     #[test]
-    fn the_first_reported_ampersand_is_located() {
+    fn the_first_problem_is_located() {
         assert_eq!(decode("a & b", false).1, None);
-        assert_eq!(decode("ab &bogus; &x;", false).1, Some(3));
-        assert_eq!(decode("&amp; é &#xZZ; &nosuch;", false).1, Some(9));
-        assert_eq!(decode("?a=1&b=2&copy", true).1, Some(8));
+        assert_eq!(decode("ab &bogus; &x;", false).1, Some((3, UnknownEntity)));
+        assert_eq!(
+            decode("&amp; é &#xZZ; &nosuch;", false).1,
+            Some((9, UnknownEntity))
+        );
+        assert_eq!(decode("?a=1&b=2&copy", true).1, Some((8, MissingSemicolon)));
         assert_eq!(decode("?a=1&b=2&copy=3", true).1, None);
+        assert_eq!(
+            decode("x &copy &bogus;", false).1,
+            Some((2, MissingSemicolon))
+        );
     }
 }
 
@@ -497,6 +611,6 @@ mod full_tests {
                 found += 1;
             }
         }
-        assert_eq!(found, 178, "every curated name is a WHATWG name");
+        assert_eq!(found, 201, "every curated name is a WHATWG name");
     }
 }

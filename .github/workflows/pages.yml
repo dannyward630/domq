@@ -1,8 +1,10 @@
-name: Playground
+name: Playground and guide
 
-# Builds the wasm module into playground/pkg and deploys playground/ to GitHub
-# Pages (https://iamsaquib8.github.io/domq/). One-time setup: in the repo
-# settings, Pages -> Build and deployment -> Source: "GitHub Actions".
+# Builds the wasm module into playground/pkg and the guide (book/, mdBook)
+# into docs/, and deploys both to GitHub Pages: the playground at
+# https://iamsaquib8.github.io/domq/ and the guide at .../domq/docs/.
+# One-time setup: in the repo settings, Pages -> Build and deployment ->
+# Source: "GitHub Actions".
 
 on:
   push:
@@ -11,6 +13,7 @@ on:
       - "src/**"
       - "wasm/**"
       - "playground/**"
+      - "book/**"
       - "Cargo.toml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -41,7 +44,7 @@ jobs:
           workspaces: wasm
       - uses: taiki-e/install-action@v2
         with:
-          tool: wasm-pack
+          tool: wasm-pack,mdbook
       - name: Build the wasm module into playground/pkg
         working-directory: wasm
         run: wasm-pack build --target web --release --no-pack --out-dir ../playground/pkg
@@ -49,10 +52,15 @@ jobs:
         run: |
           echo "wasm: $(wc -c < playground/pkg/domq_wasm_bg.wasm) bytes," \
                "$(gzip -9 -c playground/pkg/domq_wasm_bg.wasm | wc -c) gzipped"
+      - name: Assemble the site (playground at /, guide at /docs/)
+        run: |
+          mkdir -p _site
+          cp -R playground/. _site/
+          mdbook build book --dest-dir ../_site/docs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: playground
+          path: _site
 
   deploy:
     needs: build

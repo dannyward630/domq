@@ -127,12 +127,57 @@ jobs:
         working-directory: wasm
         run: |
           # Measured ~40,800-41,000 bytes (gzip -9) after the review hardening
-          # (raw-text escaping, name validation, bounded selector memo); the
-          # budget is that rounded up to the next 5 KiB. Raise it on purpose,
-          # never by accident.
+          # (raw-text escaping, name validation, bounded selector memo), and
+          # ~42,450 after the 0.5 spec-aligned recovery (legacy entities,
+          # scoped implicit closes); the budget is the first rounded up to the
+          # next 5 KiB. Raise it on purpose, never by accident.
           SIZE=$(gzip -9 -c pkg/domq_wasm_bg.wasm | wc -c)
           echo "gzipped wasm: $SIZE bytes (budget 46080)"
           test "$SIZE" -lt 46080
+
+  conformance:
+    name: conformance (html5lib tests, Readability pages)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: conformance
+      - name: Fetch the test data (pinned WPT and Readability commits)
+        run: sh conformance/fetch.sh
+      - name: rustfmt + clippy + self-tests (harness)
+        run: |
+          cargo fmt --manifest-path conformance/Cargo.toml -- --check
+          cargo clippy --manifest-path conformance/Cargo.toml --all-targets -- -D warnings
+          cargo test --manifest-path conformance/Cargo.toml
+      # docs/conformance.md is generated: any change in the parser's results
+      # must come with the regenerated report, so the diff shows it.
+      - name: docs/conformance.md is up to date
+        run: cargo run --release --manifest-path conformance/Cargo.toml -- --check docs/conformance.md
+      - name: docs/reader-mode.md is up to date
+        run: cargo run --release --manifest-path conformance/Cargo.toml --bin reader -- --check docs/reader-mode.md
+
+  book:
+    name: guide (mdBook build + examples)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+      # The book's Rust examples link against the library alone, built into
+      # its own target dir so exactly one `domq` rlib is on the path.
+      - name: Test the book's Rust examples
+        run: |
+          CARGO_TARGET_DIR=target/book cargo build --lib
+          mdbook test book -L target/book/debug/deps
+      - name: Build the book
+        run: mdbook build book
 
   fuzz:
     name: fuzz (build + smoke)

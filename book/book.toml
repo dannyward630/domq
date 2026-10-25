@@ -1,0 +1,16 @@
+[book]
+title = "domq"
+description = "Messy HTML in. Clean tree, text, Markdown, or JSON out. The guide to domq: Rust, CLI, JavaScript, Python and MCP."
+authors = ["iamsaquib8"]
+language = "en"
+src = "src"
+
+[rust]
+edition = "2024"
+
+[output.html]
+site-url = "/domq/docs/"
+git-repository-url = "https://github.com/iamsaquib8/domq"
+edit-url-template = "https://github.com/iamsaquib8/domq/edit/main/book/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
