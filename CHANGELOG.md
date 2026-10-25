@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-25
+
+"Trust, measured": an MCP server for agents, and published numbers for how
+close domq's trees are to a browser's and how well reader mode finds the
+article, with the parser and the heuristic tuned against them.
+
+**Upgrading from 0.4:** no API was removed. Trees, text and Markdown change
+for some inputs, each time to match browsers (see "Changed"): mis-nested list
+items, cells and paragraphs; character references without `;`; hidden
+elements in `to_text`/`to_markdown`. Re-embed indexes built from 0.4's
+Markdown if exact text matters. `ErrorKind` gains `MissingSemicolon`
+(it is `#[non_exhaustive]`, so matches with a `_` arm keep compiling).
+
 ### Added
 - **`domq mcp`: an MCP server for AI agents.** The CLI serves the Model
   Context Protocol over stdio with nine read-only tools: `markdown`, `text`,

@@ -61,7 +61,7 @@ assert_eq!(md, "## Notes\n\nSome **bold** text");
 
 ```toml
 [dependencies]
-domq = "0.4"
+domq = "0.5"
 ```
 
 ```rust

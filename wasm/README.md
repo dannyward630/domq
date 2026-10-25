@@ -85,7 +85,7 @@ Without a bundler, import it from a CDN:
 
 ```html
 <script type="module">
-  import init, { toText } from "https://cdn.jsdelivr.net/npm/domq-wasm@0.4/domq_wasm.js";
+  import init, { toText } from "https://cdn.jsdelivr.net/npm/domq-wasm@0.5/domq_wasm.js";
   await init();
   console.log(toText("<p>Hello <b>world</b>"));
 </script>
@@ -94,7 +94,7 @@ Without a bundler, import it from a CDN:
 ### Deno and Bun
 
 ```js
-import { select } from "npm:domq-wasm@0.4"; // Deno; in Bun: "domq-wasm"
+import { select } from "npm:domq-wasm@0.5"; // Deno; in Bun: "domq-wasm"
 ```
 
 Both resolve the package's Node entry point, which reads the `.wasm` with

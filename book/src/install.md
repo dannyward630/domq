@@ -4,7 +4,7 @@
 
 ```toml
 [dependencies]
-domq = "0.4"
+domq = "0.5"
 ```
 
 Default features are `json`, `query` (CSS selectors) and `markdown`; all of
@@ -44,7 +44,7 @@ Browsers and bundlers call `await init()` once first. Without a bundler:
 
 ```html
 <script type="module">
-  import init, { toText } from "https://cdn.jsdelivr.net/npm/domq-wasm@0.4/domq_wasm.js";
+  import init, { toText } from "https://cdn.jsdelivr.net/npm/domq-wasm@0.5/domq_wasm.js";
   await init();
   console.log(toText("<p>Hello <b>world</b>"));
 </script>
