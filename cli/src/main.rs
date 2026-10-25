@@ -169,16 +169,23 @@ fn match_output(matches: &[NodeRef<'_>], opts: &Options) -> Output {
         };
         return Output { text, matched };
     }
-    let matched = !matches.is_empty();
+    let mut matched = !matches.is_empty();
     let text = match opts.mode {
         Mode::Count => format!("{}\n", matches.len()),
         Mode::Json => format!("{}\n", json::array(matches.iter().map(|m| m.to_json()))),
         Mode::Jsonl => lines(matches.iter().map(|m| m.to_json()), "\n"),
-        Mode::Text => lines(non_blank(matches.iter().map(|m| m.to_text()), opts), "\n"),
-        Mode::Markdown => lines(
-            non_blank(matches.iter().map(|m| m.to_markdown()), opts),
-            "\n\n",
-        ),
+        Mode::Text => {
+            let values: Vec<String> =
+                non_blank(matches.iter().map(|m| m.to_text()), opts).collect();
+            matched = !values.is_empty();
+            lines(values.into_iter(), "\n")
+        }
+        Mode::Markdown => {
+            let values: Vec<String> =
+                non_blank(matches.iter().map(|m| m.to_markdown()), opts).collect();
+            matched = !values.is_empty();
+            lines(values.into_iter(), "\n\n")
+        }
         Mode::Html if opts.pretty => {
             let mut out = String::new();
             for m in matches {

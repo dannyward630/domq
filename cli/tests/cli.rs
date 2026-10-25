@@ -77,6 +77,23 @@ fn exit_status_is_opt_in_and_tracks_matches() {
 }
 
 #[test]
+fn exit_status_tracks_text_after_ignoring_whitespace() {
+    let whitespace = "<span>   </span>";
+    assert_eq!(
+        domq(&["--exit-status", "-w", "-t", "span"], whitespace).2,
+        1
+    );
+    assert_eq!(
+        domq(&["--exit-status", "-w", "-m", "span"], whitespace).2,
+        1
+    );
+
+    let text = "<span>visible</span>";
+    assert_eq!(domq(&["--exit-status", "-w", "-t", "span"], text).2, 0);
+    assert_eq!(domq(&["--exit-status", "-w", "-m", "span"], text).2, 0);
+}
+
+#[test]
 fn selects_elements_as_html() {
     assert_eq!(ok(&["li"], PAGE), "<li>one</li>\n<li>two</li>\n");
 }
