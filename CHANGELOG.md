@@ -4,7 +4,39 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+**Output changes** (anything that changes the text `to_text`, `to_markdown`
+or the chunks produce, what `main_content()` picks, or the parsed tree) ship
+only in minor releases and are listed under their own heading, so you know
+when to re-embed. See [Output stability](./README.md#output-stability).
+
 ## [Unreleased]
+
+### Added
+- **Reader mode on human-labelled benchmarks.** `conformance/` gains a
+  `quality` binary that scores `main_content()` on the Zyte/ScrapingHub
+  article extraction benchmark (AEB, 181 articles) and WCXB (2,008 pages in
+  seven page types, dev and held-out test splits), each with its own scoring
+  (verified against the benchmarks' `evaluate.py`), and writes
+  [docs/reader-quality.md](docs/reader-quality.md) next to the published
+  scores of other extractors; CI checks it. First numbers: AEB F1 0.898, WCXB
+  0.738 (dev) / 0.803 (test). The Readability comparison
+  ([docs/reader-mode.md](docs/reader-mode.md)) is now labelled as agreement.
+- **Real-page parsing benchmark** next to astral-html, `tl` and `scraper`
+  (`benchmarks/benches/real_pages.rs`), on the five pages astral-html
+  publishes numbers for, with its two workloads. It corrects the README: on
+  real pages domq is 5–6× faster than scraper but 25–48% slower than `tl`
+  (the "ahead of `tl`" claim held only for generated inputs).
+- **Output stability policy:** output changes only in minor releases, listed
+  under "Output changes" ([README](README.md#output-stability)).
+
+### Output changes
+- **`<noscript>` that holds the page is shown.** When a document has more
+  text inside `<noscript>` than outside it (a page that renders with script
+  and ships its content for clients without it, as Discourse forums do),
+  `to_text`, `to_markdown`, link text and `main_content()` show that content,
+  as a browser with scripting off does. An "enable JavaScript" notice next to
+  real content stays hidden. WCXB forums 0.365 → 0.498, WCXB dev 0.738 →
+  0.747.
 
 ## [0.5.0] — 2026-10-25
 
@@ -51,6 +83,21 @@ Markdown if exact text matters. `ErrorKind` gains `MissingSemicolon`
   selectors and the MCP server, and migration guides from htmlq, scraper,
   BeautifulSoup and cheerio. CI runs its Rust examples and checks the CLI
   page against `domq --help`.
+
+### Output changes
+Listed here in hindsight (the policy above starts with 0.6): re-embed
+content indexed with 0.4 if exact text matters.
+- **Tree:** mis-nested list items, cells and paragraphs close as in browsers
+  (`<li><a>One<li><a>Two` gives two items), so text and Markdown from such
+  pages change shape.
+- **Text and Markdown:** character references without `;` decode
+  (`&copy 2026` → `© 2026`); elements hidden with `hidden` or inline
+  `display:none` / `visibility:hidden` are left out; the raw-text elements
+  (`<xmp>`, `<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`) keep their
+  content as text.
+- **Reader mode:** `main_content()` picks differently on many pages (an
+  `articleBody` first, div/span paragraphs counted, split articles kept
+  whole).
 
 ### Changed
 - **Better reader mode** (95.2% F1 against Readability, from 91.9%; the

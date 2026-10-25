@@ -28,9 +28,11 @@ unless a benchmark is named. Corrections welcome.
 
 **Behind**
 
-- Reader-mode quality is measured only as *agreement with Readability* on
-  Readability's own test pages. Competitors report on human-labelled corpora
-  (AEB, WCXB). That number is the headline gap.
+- Reader-mode quality, now measured on the human-labelled corpora
+  ([docs/reader-quality.md](reader-quality.md)): AEB 0.898 (trafilatura
+  0.958, Readability.js 0.947, dom_smoothie 0.865) and WCXB 0.747 / 0.803
+  dev / test (rs-trafilatura 0.859 / 0.893, dom_smoothie 0.762 / 0.808).
+  Precision and non-article page types (forums, listings) are the gaps.
 - No options on `to_markdown` / `to_text`; no confidence score from
   `main_content()`; no comments extraction, page types or site extractors.
 - Metadata agreement with Readability: title 48.8%, byline 36.8%, date 48.5%.
@@ -143,7 +145,7 @@ markuplint, HTMLHint, html-validate and axe-core's static subset).
 | [trafilatura evaluation](https://trafilatura.readthedocs.io/en/latest/evaluation.html) | 990 documents, Apache-2.0 | trafilatura 0.926, justext 0.862, readability-lxml 0.853, resiliparse 0.811, goose3 0.810 |
 | [WebMainBench](https://github.com/opendatalab/WebMainBench) | 7,809 pages, 46 languages, Apache-2.0; a 545-page subset scores code, formula and table fidelity | Readability 0.654, trafilatura 0.640, resiliparse 0.629 (ROUGE-N F1) |
 | [htmldate](https://github.com/adbar/htmldate) | 1,000 pages, Apache-2.0 | publication dates: htmldate 0.926–0.949, newspaper4k 0.810 |
-| Mozilla Readability's test pages (what domq uses today) | 130 pages, Apache-2.0 | readabilityrs passes 119/130; domq's 95.2% F1 is *agreement*, not comparable with the rows above |
+| Mozilla Readability's test pages | 130 pages, Apache-2.0 | readabilityrs passes 119/130; domq's 95.2% F1 is *agreement* with Readability, not comparable with the rows above |
 
 ### Speed
 
@@ -151,10 +153,11 @@ markuplint, HTMLHint, html-validate and axe-core's static subset).
   mdream 0.34 / 0.41 / 5.2 ms, html_to_markdown 1.7 / 2.7 / 28.5 ms, htmd
   2.1 / 3.5 / 34.4 ms; html2md-rs panicked on the first page. mdream's CLI
   starts in 1.4 ms.
-- **Parsing** (Rust): [astral-html](https://github.com/astral-sh/astral-html)
-  reports beating tl on five real documentation pages (link extraction, e.g.
-  Rust Book 146 µs vs tl 219 µs vs scraper 1,589 µs). domq's "ahead of tl"
-  needs re-measuring on that corpus.
+- **Parsing** (Rust): on [astral-html](https://github.com/astral-sh/astral-html)'s
+  five real pages, measured on one machine (`benchmarks/benches/real_pages.rs`),
+  astral-html is fastest, `tl` second and domq third (25–48% behind `tl`),
+  all far ahead of scraper. domq's old "ahead of tl" held only on generated
+  inputs.
 - **Python**: selectolax's 754-domain harness: selectolax 2.39 s, lxml 9.09 s,
   html5-parser 16.10 s, BeautifulSoup 61.02 s; turbohtml claims 2–5× lxml.
 - **JS**: [htmlparser-benchmark](https://github.com/AndreasMadsen/htmlparser-benchmark),

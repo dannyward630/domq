@@ -84,8 +84,9 @@ browsers
 >
 > - **Zero dependencies**, `no_std + alloc`, `#![forbid(unsafe_code)]`. A clean
 >   build takes ~0.6 s (scraper: 42 crates, ~4 s).
-> - **Fast for an owned tree:** ~500 MB/s on markup — about 8× scraper/html5ever,
->   ahead of `tl` on large documents, ~20 allocations per parse.
+> - **Fast for an owned tree:** 5–6× scraper on real pages, ~20 allocations
+>   per parse. (`tl` and astral-html are faster; the benchmarks say by how
+>   much.)
 > - **Never panics** on any input. Proptested and fuzzed (including selectors,
 >   Markdown and editing), differential-fuzzed against html5ever on the subset it
 >   claims to handle, and 100k-deep nesting can't blow the stack.
@@ -196,7 +197,7 @@ or CSV
 > HTML: CSS selectors, readable text, GFM Markdown (with RAG chunking and reader
 > mode), links/metadata/tables, editing.
 >
-> Zero dependencies, never panics, ~500 MB/s. Same engine as an htmlq-compatible
+> Zero dependencies, never panics, 5–6× scraper's speed. Same engine as an htmlq-compatible
 > CLI (`brew install iamsaquib8/tap/domq`) that is also an MCP server for AI
 > agents, a 42 KB wasm module on npm (`domq-wasm`), and Python wheels on PyPI.
 > Measured against browsers: https://github.com/iamsaquib8/domq/blob/main/docs/conformance.md

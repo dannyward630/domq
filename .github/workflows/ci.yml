@@ -136,7 +136,7 @@ jobs:
           test "$SIZE" -lt 46080
 
   conformance:
-    name: conformance (html5lib tests, Readability pages)
+    name: conformance (html5lib tests, Readability, AEB, WCXB)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -146,7 +146,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: conformance
-      - name: Fetch the test data (pinned WPT and Readability commits)
+      # ~230 MB at pinned commits; cached until a pin changes.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            conformance/wpt
+            conformance/readability
+            conformance/aeb
+            conformance/wcxb
+          key: conformance-data-${{ hashFiles('conformance/*_COMMIT') }}
+      - name: Fetch the test data (pinned commits; no-op when cached)
         run: sh conformance/fetch.sh
       - name: rustfmt + clippy + self-tests (harness)
         run: |
@@ -159,6 +168,8 @@ jobs:
         run: cargo run --release --manifest-path conformance/Cargo.toml -- --check docs/conformance.md
       - name: docs/reader-mode.md is up to date
         run: cargo run --release --manifest-path conformance/Cargo.toml --bin reader -- --check docs/reader-mode.md
+      - name: docs/reader-quality.md is up to date (AEB, WCXB)
+        run: cargo run --release --manifest-path conformance/Cargo.toml --bin quality -- --check docs/reader-quality.md
 
   book:
     name: guide (mdBook build + examples)

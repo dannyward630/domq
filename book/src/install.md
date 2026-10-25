@@ -20,6 +20,12 @@ them are zero-dependency. Optional features:
 
 The minimum supported Rust version is **1.88**.
 
+**Output stability:** the text domq produces (`to_text`, `to_markdown`,
+chunks, what `main_content()` picks) changes only in minor releases, listed
+under "Output changes" in the
+[changelog](https://github.com/iamsaquib8/domq/blob/main/CHANGELOG.md), so
+re-embedding an index is something you plan.
+
 ## Command line
 
 ```sh

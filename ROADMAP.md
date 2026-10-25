@@ -9,8 +9,10 @@ parser internals. Issues and PRs that fit the principles below are very welcome.
 Homebrew and the release page. It added `domq mcp` (an MCP server for agents),
 browser-style recovery for the common mis-nesting cases, and published numbers:
 **61.8%** of the 1,959 html5lib tree-construction tests match a browser's tree
-structure (0 panics), and reader mode scores **95.2% F1** against Mozilla
-Readability's 130 labelled pages. Both reports regenerate in CI on every PR.
+structure (0 panics), and reader mode scores **0.898 F1 on the AEB article
+benchmark** and **0.747 / 0.803 on WCXB** (dev / test), against human labels
+([docs/reader-quality.md](docs/reader-quality.md)). The reports regenerate in
+CI on every PR.
 The [guide](https://iamsaquib8.github.io/domq/docs/) covers every surface. See
 [what works where](#what-works-where), [what shipped](#shipped) and the
 [changelog](./CHANGELOG.md).
@@ -177,20 +179,33 @@ people rely on.
 - [ ] **S** Turn recurring questions into README cookbook entries and doc
       examples.
 - [ ] **S** Keep 5–10 `good first issue`s labelled from the
-      [anytime lane](#anytime--small-and-welcome).
-- [ ] **M** `ai` **Honest quality numbers before quality claims:** run
+      [anytime lane](#anytime--small-and-welcome) (7 open:
+      [#22](https://github.com/iamsaquib8/domq/issues/22)–[#28](https://github.com/iamsaquib8/domq/issues/28)).
+- [x] **M** `ai` **Honest quality numbers before quality claims:**
       `main_content()` on the Zyte/ScrapingHub article-extraction benchmark
-      (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types, CC-BY-4.0),
-      publish precision, recall, F1 and ms/page next to the published scores
-      (rs-trafilatura 0.970 / 0.859, Readability.js 0.947 / 0.675,
-      dom_smoothie 0.865 / 0.762), and relabel the Readability table as
-      *agreement*. Tune only against the dev splits.
-- [ ] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
-      on its real-page corpus; until then, word it as measured.
-- [ ] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
+      (AEB, 181 pages, MIT) and WCXB (2,008 pages in 7 page types,
+      CC-BY-4.0), scored like their own `evaluate.py` (verified to match) and
+      checked in CI ([docs/reader-quality.md](docs/reader-quality.md)):
+      **AEB 0.898**, **WCXB 0.738 dev / 0.803 test** at first (0.747 dev
+      after the `<noscript>` fix below), ~1–3 ms/page, next to
+      the published scores (rs-trafilatura 0.970 / 0.859, Readability.js
+      0.947 / 0.675, dom_smoothie 0.865 / 0.762). The Readability table is
+      now labelled *agreement*.
+- [ ] **M** `ai` Close the gaps WCXB shows, tuning on the dev split only.
+      Done: `<noscript>` that holds a page's content (Discourse forums) is
+      shown, forums 0.365 → 0.498. Next: listings (0.466), products,
+      collections and service pages, where one container holds only part of
+      the content; and AEB precision (0.828; recall is already 0.981).
+- [x] **S** `rust` Re-measure the "ahead of `tl`" claim against astral-html
+      on its real-page corpus. It doesn't hold: on real pages domq is 5–6×
+      faster than scraper but 25–48% slower than `tl` and slower than
+      astral-html everywhere (`benchmarks/benches/real_pages.rs`). The README
+      now says so.
+- [x] **S** `ai` An output-stability policy for `to_text`, `to_markdown` and
       chunks: output changes only in minor releases, under an "Output changes"
       heading in the changelog, so re-embedding an index is planned rather
-      than a surprise. (0.5.0's changes are listed that way in hindsight.)
+      than a surprise ([README](./README.md#output-stability); 0.5.0's
+      changes are listed that way in hindsight).
 
 ## 0.5.x — "Agents that don't pay for markup"
 
@@ -366,6 +381,9 @@ The remaining measurement work, against the tools people would otherwise pick.
 - [ ] **M** `ai` Reader mode and Markdown next to trafilatura, Readability.js,
       defuddle, markdownify, turndown, htmd and mdream on the same corpora
       (AEB, WCXB, trafilatura's set, WebMainBench), published either way.
+- [ ] **M** `rust` Close the real-page parsing gap: profile domq on the five
+      real pages (25–48% behind `tl`, more behind astral-html) and fix what
+      generated inputs hid (attribute-heavy markup, scripts, long URLs).
 - [ ] **M** `rust` `shell` Speed where people choose: HTML → Markdown against
       mdream, htmd and html-to-markdown-rs on mdream's pages; parsing against
       astral-html, tl, lol_html, html5gum and scraper on real pages; reader
@@ -439,23 +457,25 @@ good first issues; each lands in whichever release is next.
 
 - [ ] **S** `shell` Several inputs in one run (`-f` repeatable, globs), with
       grep-style `FILE:` prefixes and a `file` field in `--jsonl`; batch output
-      with `-o DIR --keep-dirs --parallel N` and `--deduplicate`.
+      with `-o DIR --keep-dirs --parallel N` and `--deduplicate`. ([#26](https://github.com/iamsaquib8/domq/issues/26))
 - [ ] **S** `shell` `--exit-status`: exit 1 when nothing matches, for
-      `if domq --exit-status …; then`. The default stays htmlq-compatible.
+      `if domq --exit-status …; then`. The default stays htmlq-compatible. ([#22](https://github.com/iamsaquib8/domq/issues/22))
 - [ ] **S** `shell` Shell completions (bash, zsh, fish, PowerShell) and a man
       page, generated from `--help` and shipped in the release archives and
-      the Homebrew formula.
-- [ ] **S** `shell` A warning on stderr when `<meta charset>` names an encoding
-      the CLI can't decode (Shift_JIS, GBK, …), instead of silent mojibake.
+      the Homebrew formula. ([#23](https://github.com/iamsaquib8/domq/issues/23))
+- [x] **S** `shell` A warning on stderr when `<meta charset>` names an encoding
+      the CLI can't decode (Shift_JIS, GBK, …) and the page isn't valid
+      UTF-8, instead of silent mojibake. (Already in the CLI's
+      `encoding.rs`.)
 - [ ] **S** `rust` `Selection` helpers, chainable and allocation-light:
       `dom.select("a").attrs("href")`, `.texts()`, `.first()`, `.len()`.
 - [ ] **S** `rust` Reusable parser: `Dom::parse_into(&mut self, html)` reuses
       the arenas, so a crawler parsing millions of pages stops allocating per
       page.
 - [ ] **S** `rust` Cookbook: fetching with `reqwest` / `ureq`, and parsing
-      pages in parallel with rayon.
+      pages in parallel with rayon. ([#28](https://github.com/iamsaquib8/domq/issues/28))
 - [ ] **S** A counting-allocator test, so the allocations-per-parse budget is
-      enforced in CI.
+      enforced in CI. ([#27](https://github.com/iamsaquib8/domq/issues/27))
 - [ ] **S** Release automation: one command bumps every version in lock-step
       (crate, CLI, wasm, Python) and drafts the changelog; the release workflow
       updates the Homebrew tap itself (token scoped to the tap repo).
@@ -465,7 +485,7 @@ good first issues; each lands in whichever release is next.
       wasm size budget.
 - [ ] **S** `shell` A pup migration guide in the docs (pup's `text{}`,
       `attr{}`, `json{}` and `:parent-of()` map to `-t`, `-a`, `-j` and
-      `:has()`).
+      `:has()`). ([#25](https://github.com/iamsaquib8/domq/issues/25))
 - [ ] **S** `shell` Shell niceties: `--shell` for `eval`-able `NAME=…` output
       (xidel), coloured HTML with a pager (pup, xq), and `-i` to format a file
       in place (xq; the start of `domq fmt`).
@@ -475,7 +495,7 @@ good first issues; each lands in whichever release is next.
       `--absolute` for HTML output.
 - [ ] **S** `rust` `py` Text matchers: `:has-text()`, `:only-text`,
       case-insensitive `:contains("x" i)`, and `NodeRef::own_text()` (direct
-      text only), as dom_query and selectolax have.
+      text only), as dom_query and selectolax have. ([#24](https://github.com/iamsaquib8/domq/issues/24))
 - [ ] **S** `rust` Editing conveniences: `replace_with_html`, `remove_attrs` /
       `remove_all_attrs`, `strip_tags` (unwrap by selector).
 

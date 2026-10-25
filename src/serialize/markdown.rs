@@ -64,7 +64,10 @@ impl Dom {
     /// );
     /// ```
     pub fn to_markdown(&self) -> String {
-        let mut md = Markdown::default();
+        let mut md = Markdown {
+            noscript: super::noscript_is_content(self),
+            ..Markdown::default()
+        };
         for root in self.roots() {
             walk(root, |node, enter| md.visit(node, enter));
         }
@@ -95,6 +98,7 @@ impl NodeRef<'_> {
     pub fn to_markdown(&self) -> String {
         let mut md = Markdown {
             root: Some(self.id()),
+            noscript: super::noscript_is_content(self.dom()),
             ..Markdown::default()
         };
         walk(*self, |node, enter| md.visit(node, enter));
@@ -222,6 +226,9 @@ struct Markdown<'a> {
     table: Option<Table>,
     /// The node `NodeRef::to_markdown` was called on: shown even if hidden.
     root: Option<NodeId>,
+    /// `<noscript>` holds the document's content (see
+    /// [`super::noscript_is_content`]): show it as a block.
+    noscript: bool,
 }
 
 impl<'a> Markdown<'a> {
@@ -239,7 +246,10 @@ impl<'a> Markdown<'a> {
         if self.root != Some(node.id()) && node.hides_itself() {
             return false;
         }
-        let mut display = tags::display(tag);
+        let mut display = match tag {
+            "noscript" if self.noscript => Display::Block,
+            _ => tags::display(tag),
+        };
         if display == Display::Hidden {
             if self.root != Some(node.id()) {
                 return false;

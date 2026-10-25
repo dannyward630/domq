@@ -134,7 +134,10 @@ impl Dom {
         let base = self.base_url(base);
         let base = base.as_deref().unwrap_or("");
         let mut links: Vec<Link<'_>> = Vec::new();
-        let mut collector = TextCollector::default();
+        let mut collector = TextCollector {
+            noscript: crate::serialize::noscript_is_content(self),
+            ..TextCollector::default()
+        };
         for root in self.roots() {
             walk(root, |node, enter| {
                 collector.visit(node, enter, |node, href| {
@@ -245,6 +248,8 @@ struct TextCollector<'a> {
     /// The hidden element inside a link that the walk is in, if any: nothing
     /// in it counts toward any link's text (links in it are still found).
     hidden: Option<NodeId>,
+    /// `<noscript>` holds the document's content: walk into it.
+    noscript: bool,
 }
 
 #[derive(Default)]
@@ -294,7 +299,7 @@ impl<'a> TextCollector<'a> {
             return false;
         }
         let display = tags::display(tag);
-        if display == Display::Hidden {
+        if display == Display::Hidden && !(tag == "noscript" && self.noscript) {
             return false;
         }
         if self.hidden.is_none() && !self.open.is_empty() && node.hides_itself() {

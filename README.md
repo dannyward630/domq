@@ -117,11 +117,13 @@ Also: 🤖 **AI agents** — `domq mcp` ([setup](#ai-agents-mcp)) · 🐍 **Pyth
   favourite, `:contains("text")`.
 - **Content out, not just a tree.** Readable text (`to_text`), CommonMark/GFM
   Markdown (`to_markdown`) for LLM prompts and RAG pipelines, JSON, and HTML.
-- **Runs everywhere.** `no_std + alloc`, `#![forbid(unsafe_code)]`, a ~41 KB
+- **Runs everywhere.** `no_std + alloc`, `#![forbid(unsafe_code)]`, a ~43 KB
   gzipped wasm module for browsers, Cloudflare Workers, Deno, Bun and Node, and a
   single static binary for your shell.
-- **Fast.** ~500 MB/s on markup — about 8× `scraper`, level with or ahead of
-  [`tl`][tl] — with ~20 allocations per parse (see [Performance](#performance)).
+- **Fast for an owned tree.** 5–6× faster than `scraper` on real pages, with
+  ~20 allocations per parse. Speed specialists that do less work are faster:
+  [`tl`][tl] by 1.3–1.5× and astral-html by 1.5–1.7× on real pages (see
+  [Performance](#performance)).
 - **Streams, too.** `domq::events` yields start/end/text events with the
   same recovery as the tree builder, for documents you don't want to keep.
 - **Agent-ready.** `domq mcp` is an MCP server, so Claude, Cursor or any MCP
@@ -424,9 +426,22 @@ you're sanitizing untrusted HTML, use [`ammonia`](https://crates.io/crates/ammon
 
 ## Performance
 
-Fast *for an owned tree* — full recovery, entity decoding, source spans and
-all. Apple M4 Pro, `cargo bench` (generated inputs; see
-[benchmarks/](./benchmarks) for method and caveats):
+Fast *for an owned tree*: full recovery, entity decoding, source spans and
+all. **Real pages** (the five astral-html publishes numbers for, parsed into
+each library's document; GitHub Actions, AMD EPYC 7763; µs, lower is better;
+see [benchmarks/](./benchmarks)):
+
+| page | domq | astral-html | [tl] | [scraper] |
+|---|---:|---:|---:|---:|
+| iniconfig (6 KB) | 6.5 | **5.2** | 7.3 | 62.0 |
+| Bootstrap dashboard (22 KB) | 56.1 | **36.7** | 43.1 | 350 |
+| Rust Book chapter (89 KB) | 224 | **141** | 171 | 1,469 |
+| PEP 8 (122 KB) | 489 | **319** | 390 | 2,826 |
+| PEP index (419 KB) | 1,707 | **995** | 1,155 | 9,545 |
+
+On real pages domq is 5–6× faster than `scraper`, and `tl` and astral-html
+are faster than domq (closing that gap is on the [roadmap](./ROADMAP.md)).
+**Generated inputs** (Apple M4 Pro, `cargo bench`):
 
 | input | domq | [tl] | [scraper] | [html5ever]¹ |
 |---|---:|---:|---:|---:|
@@ -436,11 +451,12 @@ all. Apple M4 Pro, `cargo bench` (generated inputs; see
 | table-heavy (712 KiB) | **422 MB/s** | 326 MB/s | 58 MB/s | 51 MB/s |
 | text-heavy (547 KiB) | 7.7 GB/s | **8.5 GB/s** | 1.9 GB/s | 1.6 GB/s |
 
-About 8× faster than `scraper`/`html5ever` on markup, ahead of `tl` on large
-documents, and ~10% behind it on prose (`tl` borrows from the input and skips
-entity decoding and recovery). A parse makes ~20 allocations in total, and the
-optional `simd` feature cuts text-heavy parse time by another ~24%. Run them
-yourself: `cd benchmarks && cargo bench`.
+On these generated documents domq is about 8× faster than
+`scraper`/`html5ever`, ahead of `tl` on large markup, and ~10% behind it on
+prose (`tl` borrows from the input and skips entity decoding and recovery);
+the real pages above are the fairer comparison. A parse makes ~20 allocations
+in total, and the optional `simd` feature cuts text-heavy parse time by
+another ~24%. Run them yourself: `cd benchmarks && sh fetch-pages.sh && cargo bench`.
 
 <sub>¹ into its reference `RcDom`.</sub>
 
@@ -482,6 +498,17 @@ parenting, namespaces). See the [non-goals](./ROADMAP.md#non-goals).
 
 Rust **1.88** (edition 2024), enforced in CI. Raised only in minor releases.
 
+## Output stability
+
+If you embed or index domq's output, re-embedding should be planned, not a
+surprise. The text it produces (`to_text`, `to_markdown`,
+`to_markdown_chunks`, the choice `main_content()` makes, and the same output
+from the CLI, the MCP tools, JavaScript and Python) changes **only in minor
+releases** (0.5 → 0.6), and every such change is listed under an **"Output
+changes"** heading in the [changelog](./CHANGELOG.md). Patch releases keep it
+identical, except to fix a panic or a hang. The parsed tree follows the same
+rule, so selectors keep matching what they matched.
+
 ## Quality
 
 Property-tested ("never panics" + tree invariants), snapshot-tested against a
@@ -492,9 +519,24 @@ corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 (html5lib, in web-platform-tests) and publishes the results in
 [docs/conformance.md](./docs/conformance.md): 0 panics, and 61.8% of trees
 match a browser's structure in domq's model (no implied `<html>`/`<body>`),
-with the gaps explained area by area. Reader mode is scored against Mozilla
-Readability's 130 labelled pages in [docs/reader-mode.md](./docs/reader-mode.md):
-95.2% F1 against Firefox's reader view, up from 82.1% for the whole page.
+with the gaps explained area by area.
+
+**Reader mode on human-labelled benchmarks**
+([docs/reader-quality.md](./docs/reader-quality.md)), scored with each
+benchmark's own method:
+
+| | AEB (181 articles) | WCXB dev / test (2,008 pages, 7 types) |
+|---|---:|---:|
+| **domq `main_content()`** | **0.898** | **0.747 / 0.803** |
+| trafilatura (Python) | 0.958 | 0.791 / 0.833 |
+| Readability.js | 0.947 | 0.675 / 0.726 |
+| dom_smoothie (Rust) | 0.865 | 0.762 / 0.808 |
+
+F1, published scores for the others. Strongest on articles and documentation
+(0.90 on WCXB dev), weakest on listings, products and forums; about 1–3 ms per
+page.
+Agreement with Readability itself is tracked in
+[docs/reader-mode.md](./docs/reader-mode.md).
 
 ## Contributing
 
