@@ -152,8 +152,11 @@ RULES:
                         warning  other markup the parser had to recover from
     implicitly-closed   note     an omitted optional end tag (</li>, </p>,
                                  </td>, ...): valid HTML
-    unknown-entity      note     an & that starts no known character reference
-                                 (a bare & in a URL, too)
+    unknown-entity      note     an &name; or &#... that is no character
+                                 reference, left as written
+    missing-semicolon   note     a character reference without its ';', decoded
+                                 anyway (&copy 2026; also a bare & in a URL
+                                 in text: ?a=1&copy=2 reads as ?a=1©=2)
 
 OPTIONS:
         --format <FORMAT>       text (default) or json: one JSON array of

@@ -497,7 +497,6 @@ fn p_is_closed_by_every_block_start_tag() {
         "nav",
         "ol",
         "p",
-        "plaintext",
         "pre",
         "search",
         "section",
@@ -513,6 +512,11 @@ fn p_is_closed_by_every_block_start_tag() {
         );
     }
     assert_eq!(structure("<p>a<hr>b"), "<p>a</p><hr>b");
+    // `<plaintext>` has no end tag: everything after it is its text.
+    assert_eq!(
+        structure("<p>a<plaintext>b</plaintext><i>"),
+        "<p>a</p><plaintext>b<\\/plaintext><i></plaintext>"
+    );
     // Inline content stays inside.
     for tag in ["span", "a", "b", "img", "button", "label", "q"] {
         assert!(structure(&format!("<p>a<{tag}>")).starts_with(&format!("<p>a<{tag}")));
@@ -690,28 +694,28 @@ fn real_problems_are_still_reported() {
     use domq::ErrorKind::*;
     assert!(kinds("<p>&nosuchentity;</p>").contains(&UnknownEntity));
     assert!(kinds("<p>&#xZZ;</p>").contains(&UnknownEntity));
-    assert!(kinds("<p>AT&ampT, &copy 2026</p>").contains(&UnknownEntity));
-    assert!(kinds(r#"<a title="&copy">x</a>"#).contains(&UnknownEntity));
+    assert!(kinds("<p>AT&ampT, &copy 2026</p>").contains(&MissingSemicolon));
+    assert!(kinds(r#"<a title="&copy">x</a>"#).contains(&MissingSemicolon));
     assert!(kinds("<div><b>bold</div>").contains(&MismatchedEndTag));
     assert!(kinds("<p>x</span>").contains(&StrayEndTag));
-    for html in [
-        "<p>AT&ampT</p>",
-        "<p>&copy 2026</p>",
-        "<p>a&notin b</p>", // `not` + `in`
-        "<p>&nosuch;</p>",
-        "<p>&#xZZ;</p>",
-        "<p>&#169 x</p>", // numeric without `;`
-        "<p>&#</p>",
-        r#"<a title="&copy">x</a>"#,
-        r#"<a href="?a=1&lt">x</a>"#,
-        r#"<a title="&nosuch;x">x</a>"#,
+    for (html, kind) in [
+        ("<p>AT&ampT</p>", MissingSemicolon),
+        ("<p>&copy 2026</p>", MissingSemicolon),
+        ("<p>a&notin b</p>", MissingSemicolon), // `not` + `in`
+        ("<p>&nosuch;</p>", UnknownEntity),
+        ("<p>&#xZZ;</p>", UnknownEntity),
+        ("<p>&#169 x</p>", MissingSemicolon), // numeric without `;`
+        ("<p>&#</p>", UnknownEntity),
+        (r#"<a title="&copy">x</a>"#, MissingSemicolon),
+        (r#"<a href="?a=1&lt">x</a>"#, MissingSemicolon),
+        (r#"<a title="&nosuch;x">x</a>"#, UnknownEntity),
     ] {
-        assert_eq!(kinds(html), [UnknownEntity], "{html}");
+        assert_eq!(kinds(html), [kind], "{html}");
     }
 }
 
 #[test]
-fn unknown_entities_are_reported_at_their_ampersand() {
+fn entity_problems_are_reported_at_their_ampersand() {
     let positions = |html: &str| -> Vec<usize> {
         let dom = parse(html);
         let mut events = domq::events(html);
@@ -719,7 +723,12 @@ fn unknown_entities_are_reported_at_their_ampersand() {
         assert_eq!(events.errors(), dom.errors(), "{html}");
         dom.errors()
             .iter()
-            .filter(|e| e.kind == domq::ErrorKind::UnknownEntity)
+            .filter(|e| {
+                matches!(
+                    e.kind,
+                    domq::ErrorKind::UnknownEntity | domq::ErrorKind::MissingSemicolon
+                )
+            })
             .map(|e| e.position)
             .collect()
     };

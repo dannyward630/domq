@@ -91,26 +91,45 @@ fn entity_lookahead_is_bounded_with_multibyte_text() {
 
 #[test]
 fn far_semicolon_is_not_part_of_a_reference() {
-    // A `;` beyond the 32-byte lookahead never turns the run into a reference.
+    // A `;` beyond the 32-byte lookahead never turns the run into a
+    // reference: `&amp` decodes as a legacy name without its `;`.
     assert_eq!(
         decode("<p>&ampéééééééééééééééééé;</p>"),
-        "&ampéééééééééééééééééé;"
+        "&éééééééééééééééééé;"
+    );
+    assert_eq!(
+        decode("<p>&bogusééééééééééééééé;</p>"),
+        "&bogusééééééééééééééé;"
     );
     assert_eq!(decode("<p>&amp;é</p>"), "&é");
 }
 
 #[test]
-fn named_references_need_their_semicolon() {
-    // With or without `entities-full`: the legacy no-semicolon spellings stay
-    // verbatim and are reported.
-    assert_eq!(decode("<p>&amp &copy 2026 &lt</p>"), "&amp &copy 2026 &lt");
+fn legacy_names_decode_without_their_semicolon() {
+    // As in browsers, with or without `entities-full`; reported as a missing
+    // `;`. Only the 106 legacy names: `&hellip` stays.
+    assert_eq!(
+        decode("<p>&amp &copy 2026 &lt &hellip</p>"),
+        "& \u{a9} 2026 < &hellip"
+    );
     let dom = parse("<p>AT&ampT</p>");
+    assert_eq!(dom.root().unwrap().text_content(), "AT&T");
     assert!(
         dom.errors()
             .iter()
-            .any(|e| e.kind == domq::ErrorKind::UnknownEntity)
+            .any(|e| e.kind == domq::ErrorKind::MissingSemicolon)
     );
     assert_eq!(decode("<p>&amp;&copy;&lt;</p>"), "&©<");
+    // In attribute values a legacy name before `=` or an alphanumeric stays.
+    let dom = parse("<a href='?a=1&copy=2&lang=en' title='&copy'>x</a>");
+    let a = dom.root().unwrap();
+    assert_eq!(a.attr("href"), Some("?a=1&copy=2&lang=en"));
+    assert_eq!(a.attr("title"), Some("\u{a9}"));
+}
+
+#[test]
+fn numeric_references_decode_without_their_semicolon() {
+    assert_eq!(decode("<p>&#169 2026 &#x41ZOO</p>"), "\u{a9} 2026 AZOO");
 }
 
 #[cfg(not(feature = "entities-full"))]
@@ -150,11 +169,13 @@ mod full_table {
 
     #[test]
     fn unknown_names_stay_verbatim_and_are_reported() {
-        let dom = parse("<p>&notanentity; &Notanentity;</p>");
+        let dom = parse("<p>&nosuchentity; &Nosuchentity;</p>");
         assert_eq!(
             dom.root().unwrap().text_content(),
-            "&notanentity; &Notanentity;"
+            "&nosuchentity; &Nosuchentity;"
         );
+        // A known legacy name at the start still decodes, as in browsers.
+        assert_eq!(decode("<p>&notanentity;</p>"), "\u{ac}anentity;");
         assert!(
             dom.errors()
                 .iter()

@@ -101,6 +101,7 @@ const IN_SECTION: u8 = 8;
 /// A good `<article>` / `<main>` encloses (or is) this node.
 const IN_GOOD_ARTICLE: u8 = 1;
 const IN_GOOD_MAIN: u8 = 2;
+const IN_GOOD_BODY: u8 = 4;
 
 /// Text statistics of one subtree, in non-whitespace characters of visible
 /// text.
@@ -116,6 +117,12 @@ struct Stats {
     unlikely: usize,
     /// Some descendant is paragraph-like.
     para_below: bool,
+    /// Some descendant is a block (laid out on its own lines).
+    block_below: bool,
+    /// Text inside paragraphs that could be scored (innermost paragraph-like
+    /// elements with enough text, mostly not links). Boilerplate is counted
+    /// separately, in `unlikely`.
+    para_text: usize,
 }
 
 impl Dom {
@@ -136,14 +143,16 @@ impl Dom {
     /// `banner`, `breadcrumb`, …) and no strong content word (`article`,
     /// `content`, `main`, `body`).
     ///
-    /// 1. **Semantic markup first.** If exactly one outermost `<article>` has
-    ///    enough text (200+ characters and at least a fifth of the page, or
-    ///    half the page), at most half of it in links and at most a quarter in
-    ///    boilerplate, and it is not itself inside boilerplate, it is the
-    ///    answer. Otherwise the same test runs on `<main>` / `[role=main]`.
+    /// 1. **Semantic markup first.** If exactly one outermost Schema.org
+    ///    article body (`itemprop="articleBody"`) has enough text (200+
+    ///    characters and at least a fifth of the page, or half the page), at
+    ///    most half of it in links and at most a quarter in boilerplate, and
+    ///    it is not itself inside boilerplate, it is the answer. Otherwise the
+    ///    same test runs on `<article>`, then on `<main>` / `[role=main]`.
     /// 2. **Score paragraphs.** Each innermost paragraph-like element
     ///    (`<p>`, `<pre>`, `<td>`, `<li>`, `<dd>`, or a block with 25+
-    ///    characters of its own text) with 25+ characters, at most half of
+    ///    characters of its own text or no block inside it, such as
+    ///    `<div><span>…</span></div>`) with 25+ characters, at most half of
     ///    them links, and not inside boilerplate scores `1 + commas +
     ///    min(chars / 100, 3)`. The score goes to its parent in full, to its
     ///    grandparent halved, and to three more ancestors divided by 6, 9 and
@@ -155,10 +164,12 @@ impl Dom {
     ///    scores, and is scaled by `1 − link density`. The highest final score
     ///    wins; ties go to the earlier element. If no paragraph qualified,
     ///    step 2 is retried with boilerplate allowed.
-    /// 4. **Widen to the whole article.** While the winner's parent adds no
-    ///    boilerplate, at most as much text as the winner has, and mostly
-    ///    non-link text (a title, a byline, the rest of a split body), the
-    ///    parent becomes the winner — stopping below `<body>`.
+    /// 4. **Widen to the whole article.** While the winner's parent adds
+    ///    mostly non-link text, little boilerplate (at most a quarter of what
+    ///    it adds: an ad slot, not a sidebar), and either at most as much text
+    ///    as the winner has (a title, a byline) or mostly paragraphs (the rest
+    ///    of an article split into blocks), the parent becomes the winner —
+    ///    stopping below `<body>`.
     ///
     /// Returns `None` when no paragraph qualifies even with boilerplate allowed
     /// (an empty, links-only or garbage page), or when the best "container" is the
@@ -242,7 +253,7 @@ impl Dom {
                     if tag == "a" {
                         s.links = s.text;
                     }
-                    (*s, paragraph_like(tag, s.own))
+                    (*s, paragraph_like(tag, *s))
                 }
                 NodeKind::Comment(_) | NodeKind::Doctype(_) => continue,
             };
@@ -265,7 +276,18 @@ impl Dom {
                 s.unlikely
             };
             p.unlikely = p.unlikely.saturating_add(unlikely);
+            let scored = paragraph
+                && !s.para_below
+                && s.text >= MIN_PARAGRAPH
+                && s.links.saturating_mul(2) <= s.text;
+            p.para_text = p
+                .para_text
+                .saturating_add(if scored { s.text } else { s.para_text });
             p.para_below |= s.para_below || paragraph;
+            p.block_below |= s.block_below
+                || node.tag_name().is_some_and(|tag| {
+                    matches!(tags::display(tag), Display::Block | Display::Paragraph)
+                });
         }
 
         let stat = |n: NodeRef<'_>| stats.get(n.id().index()).copied().unwrap_or_default();
@@ -282,6 +304,7 @@ impl Dom {
                 && s.unlikely.saturating_mul(4) <= s.text
                 && flag(n) & (HIDDEN | UNLIKELY) == 0
         };
+        let mut bodies = Vec::new();
         let mut articles = Vec::new();
         let mut mains = Vec::new();
         let mut enclosing = vec![0u8; size];
@@ -293,6 +316,12 @@ impl Dom {
                 .unwrap_or(0);
             let mut f = inherited;
             if let Some(tag) = node.tag_name() {
+                if is_article_body(*node) && good(*node) {
+                    if inherited & IN_GOOD_BODY == 0 {
+                        bodies.push(*node);
+                    }
+                    f |= IN_GOOD_BODY;
+                }
                 if tag == "article" && good(*node) {
                     if inherited & IN_GOOD_ARTICLE == 0 {
                         articles.push(*node);
@@ -309,6 +338,9 @@ impl Dom {
             if let Some(slot) = enclosing.get_mut(node.id().index()) {
                 *slot = f;
             }
+        }
+        if let [only] = bodies.as_slice() {
+            return Some(*only);
         }
         if let [only] = articles.as_slice() {
             return Some(*only);
@@ -333,7 +365,7 @@ impl Dom {
                     || s.para_below
                     || s.text < MIN_PARAGRAPH
                     || s.links.saturating_mul(2) > s.text
-                    || !paragraph_like(tag, s.own)
+                    || !paragraph_like(tag, s)
                 {
                     continue;
                 }
@@ -407,8 +439,15 @@ impl Dom {
                 };
                 let extra = p.text.saturating_sub(c.text);
                 let extra_links = p.links.saturating_sub(c.links);
-                if p.unlikely > own_unlikely
-                    || extra > c.text
+                // More text than the winner is fine when it is mostly
+                // paragraphs: the rest of an article split into blocks.
+                let extra_para = p.para_text.saturating_sub(c.para_text);
+                let more_article = extra_para.saturating_mul(3) >= extra.saturating_mul(2);
+                // A little boilerplate (an ad slot between the blocks) is
+                // fine; a sidebar or comment section is not.
+                let extra_unlikely = p.unlikely.saturating_sub(own_unlikely);
+                if extra_unlikely.saturating_mul(4) > extra
+                    || (extra > c.text && !more_article)
                     || extra_links.saturating_mul(2) > extra
                 {
                     break;
@@ -437,15 +476,24 @@ fn measure(text: &str) -> (usize, usize) {
 }
 
 /// Elements that hold a paragraph of text.
-fn paragraph_like(tag: &str, own: usize) -> bool {
+/// Elements that hold a paragraph of text: the paragraph tags, and any other
+/// block with text of its own or with no block inside it (a
+/// `<div><span>…</span></div>` paragraph, as Readability counts it).
+fn paragraph_like(tag: &str, s: Stats) -> bool {
     match tag {
         "p" | "pre" | "td" | "li" | "dd" => true,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "th" | "caption" | "summary" | "legend" => false,
         _ => {
             matches!(tags::display(tag), Display::Block | Display::Paragraph)
-                && own >= MIN_PARAGRAPH
+                && (s.own >= MIN_PARAGRAPH || (!s.block_below && s.text >= MIN_PARAGRAPH))
         }
     }
+}
+
+/// Schema.org's marker for the body of an article: `itemprop="articleBody"`.
+fn is_article_body(node: NodeRef<'_>) -> bool {
+    node.attr("itemprop")
+        .is_some_and(|p| has_token(p, "articleBody"))
 }
 
 fn is_main(node: NodeRef<'_>, tag: &str) -> bool {
@@ -453,22 +501,11 @@ fn is_main(node: NodeRef<'_>, tag: &str) -> bool {
 }
 
 fn is_hidden(node: NodeRef<'_>, tag: &str) -> bool {
-    if tags::display(tag) == Display::Hidden
-        || node.has_attr("hidden")
+    tags::display(tag) == Display::Hidden
+        || node.hides_itself()
         || node
             .attr("aria-hidden")
             .is_some_and(|v| v.trim().eq_ignore_ascii_case("true"))
-    {
-        return true;
-    }
-    node.attr("style").is_some_and(|style| {
-        let style: alloc::string::String = style
-            .chars()
-            .filter(|c| !c.is_whitespace())
-            .map(|c| c.to_ascii_lowercase())
-            .collect();
-        style.contains("display:none") || style.contains("visibility:hidden")
-    })
 }
 
 fn is_unlikely(node: NodeRef<'_>, tag: &str, in_section: bool) -> bool {

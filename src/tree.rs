@@ -106,9 +106,13 @@ impl Dom {
     }
 
     /// Append `s` with its character references decoded straight into the
-    /// arena. Also returns where in `s` the first reference-shaped `&…` left
-    /// as is starts, if any (see [`crate::entities::decode_into`]).
-    pub(crate) fn intern_decoded(&mut self, s: &str, in_attr: bool) -> (Span, Option<usize>) {
+    /// arena. Also returns the first problem decoding met, its offset into
+    /// `s` (see [`crate::entities::decode_into`]).
+    pub(crate) fn intern_decoded(
+        &mut self,
+        s: &str,
+        in_attr: bool,
+    ) -> (Span, Option<crate::entities::Problem>) {
         let start = self.strings.len();
         let unknown = crate::entities::decode_into(s, &mut self.strings, in_attr);
         (self.span_since(start), unknown)
@@ -506,6 +510,30 @@ impl<'a> NodeRef<'a> {
         self.attr_spans()
             .iter()
             .any(|&(k, _)| dom.span_str(k) == name)
+    }
+
+    /// Whether this element hides itself: a `hidden` attribute, or an inline
+    /// `style` with a `display: none` or `visibility: hidden` declaration
+    /// (names and values ASCII case-insensitive, `!important` allowed; no
+    /// CSS cascade). `to_text`, `to_markdown` and link text skip such
+    /// elements, as a browser's `innerText` does.
+    pub(crate) fn hides_itself(&self) -> bool {
+        self.has_attr("hidden")
+            || self.attr("style").is_some_and(|style| {
+                style.split(';').any(|declaration| {
+                    let Some((name, value)) = declaration.split_once(':') else {
+                        return false;
+                    };
+                    let name = name.trim_matches(|c: char| c.is_ascii_whitespace());
+                    let value = value
+                        .split(|c: char| c.is_ascii_whitespace() || c == '!')
+                        .find(|v| !v.is_empty())
+                        .unwrap_or("");
+                    (name.eq_ignore_ascii_case("display") && value.eq_ignore_ascii_case("none"))
+                        || (name.eq_ignore_ascii_case("visibility")
+                            && value.eq_ignore_ascii_case("hidden"))
+                })
+            })
     }
 
     /// All `(name, value)` attribute pairs in source order, duplicates

@@ -19,6 +19,7 @@ for Rust, your shell, JavaScript (a ~41 KB gzipped WebAssembly module) and Pytho
 [![license](https://img.shields.io/github/license/iamsaquib8/domq)](./LICENSE)
 
 [**▶ Try it in your browser**](https://iamsaquib8.github.io/domq/) ·
+[**Guide**](https://iamsaquib8.github.io/domq/docs/) ·
 [Rust docs](https://docs.rs/domq) ·
 [CLI](./cli) ·
 [JavaScript](./wasm) ·
@@ -60,7 +61,7 @@ assert_eq!(md, "## Notes\n\nSome **bold** text");
 
 ```toml
 [dependencies]
-domq = "0.4"
+domq = "0.5"
 ```
 
 ```rust
@@ -445,16 +446,24 @@ yourself: `cd benchmarks && cargo bench`.
 
 ## What it handles
 
-Void elements, self-closing tags, comments, doctypes, CDATA, raw text
-(`<script>`/`<style>`), escapable raw text (`<title>`/`<textarea>`), boolean and
-unquoted attributes, hyphenated/namespaced/custom tags, named + numeric entities
-(with browser-style Windows-1252 remapping), and implicit closing for the everyday
-cases (`<li>`, `<p>`, table cells/rows, `<dt>`/`<dd>`, `<option>`). Everything it
-recovers from is recorded in
+Void elements, self-closing tags, comments (including browsers' recovery of
+`<!-->` and `--!>`), doctypes, CDATA, raw text (`<script>`, `<style>`, `<xmp>`,
+`<iframe>`, `<noembed>`, `<noframes>`, `<plaintext>`), escapable raw text
+(`<title>`/`<textarea>`), boolean and unquoted attributes,
+hyphenated/namespaced/custom tags, named + numeric entities (with browser-style
+Windows-1252 remapping, and a missing `;` recovered where browsers do:
+`&copy 2026`, `&#169`), and implicit closing as browsers scope it: a `<li>`,
+`<dd>`/`<dt>`, table cell or row closes its predecessor even past unclosed
+inline elements (`<li><a>One<li><a>Two`), a block closes an open `<p>` past them
+(`<p><b>x<div>`), a stray `</p>` makes an empty paragraph, `</br>` is a `<br>`.
+Everything it recovers from is recorded in
 [`Dom::errors`](https://docs.rs/domq/latest/domq/struct.Dom.html#method.errors).
+How close the trees are to a browser's is measured in
+[docs/conformance.md](./docs/conformance.md).
 
-**Deliberately not done:** full WHATWG tree construction (adoption agency, automatic
-`<html>`/`<head>`/`<body>`, foster parenting). See the [non-goals](./ROADMAP.md#non-goals).
+**Deliberately not done:** full WHATWG tree construction (adoption agency and
+reopening formatting elements, automatic `<html>`/`<head>`/`<body>`, foster
+parenting, namespaces). See the [non-goals](./ROADMAP.md#non-goals).
 
 ## Cargo features
 
@@ -478,6 +487,14 @@ Rust **1.88** (edition 2024), enforced in CI. Raised only in minor releases.
 Property-tested ("never panics" + tree invariants), snapshot-tested against a
 corpus of messy HTML, fuzzed with `cargo-fuzz`, and CI-checked for fmt, clippy,
 `no_std`, MSRV, zero dependencies and a wasm size budget.
+
+**Measured against browsers:** CI runs the 1,959 HTML tree-construction tests
+(html5lib, in web-platform-tests) and publishes the results in
+[docs/conformance.md](./docs/conformance.md): 0 panics, and 61.8% of trees
+match a browser's structure in domq's model (no implied `<html>`/`<body>`),
+with the gaps explained area by area. Reader mode is scored against Mozilla
+Readability's 130 labelled pages in [docs/reader-mode.md](./docs/reader-mode.md):
+95.2% F1 against Firefox's reader view, up from 82.1% for the whole page.
 
 ## Contributing
 
